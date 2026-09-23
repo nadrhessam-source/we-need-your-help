@@ -10,10 +10,6 @@
     // 1. Utility Functions — توابع کمکی
     // ============================================================
 
-    /**
-     * Escape HTML برای جلوگیری از XSS
-     * هر متن ورودی از کاربر (نام، پیام) باید قبل از نمایش escape بشه
-     */
     function escapeHtml(str) {
         if (str === null || str === undefined) return "";
         return String(str)
@@ -24,17 +20,11 @@
             .replace(/'/g, "&#39;");
     }
 
-    /**
-     * فرمت کردن مبلغ به شکل $12.34
-     */
     function formatCurrency(amount) {
         const num = Number(amount) || 0;
         return "$" + num.toFixed(2);
     }
 
-    /**
-     * فرمت کردن تاریخ به شکل "Aug 29"
-     */
     function formatDate(dateStr) {
         if (!dateStr) return "—";
         const d = new Date(dateStr);
@@ -46,26 +36,57 @@
         return months[d.getUTCMonth()] + " " + d.getUTCDate();
     }
 
-    /**
-     * کوتاه کردن آدرس ولت برای نمایش (0x1234...abcd)
-     */
     function shortenAddress(addr) {
         if (!addr || addr.length < 12) return addr || "";
         return addr.slice(0, 6) + "..." + addr.slice(-4);
     }
 
-    /**
-     * نمایش خطا در console فقط در حالت debug
-     */
     function logError(label, err) {
         if (window.APP_CONFIG.DEBUG) {
             console.error("[WNYH] " + label + ":", err);
         }
     }
 
-    /**
-     * فراخوانی API با مدیریت خطا
-     */
+    function $(sel) {
+        return document.querySelector(sel);
+    }
+
+    // ============================================================
+    // 2. Connection Status — مدیریت وضعیت اتصال
+    // ============================================================
+
+    var connectionState = {
+        failing: false,
+        everConnected: false
+    };
+
+    function showConnectionBanner() {
+        if (connectionState.failing) return;
+        connectionState.failing = true;
+        var banner = $("#connection-banner");
+        if (banner) banner.classList.remove("hidden");
+    }
+
+    function hideConnectionBanner() {
+        if (!connectionState.failing) return;
+        connectionState.failing = false;
+        var banner = $("#connection-banner");
+        if (banner) banner.classList.add("hidden");
+    }
+
+    function reportNetworkSuccess() {
+        connectionState.everConnected = true;
+        hideConnectionBanner();
+    }
+
+    function reportNetworkFailure() {
+        showConnectionBanner();
+    }
+
+    // ============================================================
+    // 3. API Fetch — فراخوانی API با مدیریت خطا
+    // ============================================================
+
     async function apiFetch(path, options) {
         const url = window.APP_CONFIG.API_BASE_URL.replace(/\/$/, "") + path;
         const opts = options || {};
@@ -78,7 +99,16 @@
             opts.body = JSON.stringify(opts.body);
         }
 
-        const res = await fetch(url, opts);
+        let res;
+        try {
+            res = await fetch(url, opts);
+        } catch (netErr) {
+            reportNetworkFailure();
+            throw netErr;
+        }
+
+        reportNetworkSuccess();
+
         let data = null;
         try {
             data = await res.json();
@@ -92,43 +122,46 @@
         return data;
     }
 
-    /**
-     * Query selector میان‌بر
-     */
-    function $(sel) {
-        return document.querySelector(sel);
-    }
-
     // ============================================================
-    // 2. Stats Section — بخش آمار
+    // 4. Stats Section — بخش آمار
     // ============================================================
 
     async function loadStats() {
+        const totalEl = $("#stat-total");
+        const donorsEl = $("#stat-donors");
+        const daysEl = $("#stat-days");
+
         try {
             const data = await apiFetch("/api/stats");
-            const totalEl = $("#stat-total");
-            const donorsEl = $("#stat-donors");
-            const daysEl = $("#stat-days");
-
             if (totalEl) totalEl.textContent = formatCurrency(data.totalRaised);
             if (donorsEl) donorsEl.textContent = String(data.totalDonors || 0);
             if (daysEl) daysEl.textContent = "Day " + (data.daysSinceLaunch || 0);
         } catch (err) {
             logError("loadStats", err);
-            // در صورت خطا مقادیر پیش‌فرض باقی می‌مونن
+            // فقط اگه هنوز هیچ داده‌ای نگرفتیم، جایگزین کن
+            if (!connectionState.everConnected) {
+                if (totalEl) totalEl.textContent = "—";
+                if (donorsEl) donorsEl.textContent = "—";
+                if (daysEl) daysEl.textContent = "Day —";
+            }
         }
     }
 
     // ============================================================
-    // 3. Milestones Section — نقاط عطف
+    // 5. Milestones Section — نقاط عطف
     // ============================================================
+
+    var DEFAULT_MILESTONES = [10, 100, 1000, 10000, 100000, 1000000];
 
     function renderMilestoneList(items) {
         const list = $("#milestone-list");
         if (!list) return;
 
         if (!items || !items.length) {
-            list.innerHTML = '<li class="milestone-item pending">Loading…</li>';
+            list.innerHTML = DEFAULT_MILESTONES.map(function (amt) {
+                return '<li class="milestone-item pending">□ ' +
+                    formatCurrency(amt) + "</li>";
+            }).join("");
             return;
         }
 
@@ -149,19 +182,14 @@
             renderMilestoneList(items);
         } catch (err) {
             logError("loadMilestones", err);
-            renderMilestoneList([
-                { amount: 10, reached: false },
-                { amount: 100, reached: false },
-                { amount: 1000, reached: false },
-                { amount: 10000, reached: false },
-                { amount: 100000, reached: false },
-                { amount: 1000000, reached: false }
-            ]);
+            renderMilestoneList(DEFAULT_MILESTONES.map(function (amt) {
+                return { amount: amt, reached: false };
+            }));
         }
     }
 
     // ============================================================
-    // 4. Leaderboard Section — سه نفر برتر
+    // 6. Leaderboard Section — سه نفر برتر
     // ============================================================
 
     function renderLeaderboard(items) {
@@ -184,16 +212,20 @@
     }
 
     async function loadLeaderboard() {
+        const list = $("#leaderboard-list");
         try {
             const items = await apiFetch("/api/donations/leaderboard");
             renderLeaderboard(items);
         } catch (err) {
             logError("loadLeaderboard", err);
+            if (list && !connectionState.everConnected) {
+                list.innerHTML = '<li class="leaderboard-item"><span class="name">Cannot load leaderboard. Please refresh.</span></li>';
+            }
         }
     }
 
     // ============================================================
-    // 5. Recent Helpers Table — جدول کمک‌های اخیر
+    // 7. Recent Helpers Table — جدول کمک‌های اخیر
     // ============================================================
 
     function renderRecentDonations(items) {
@@ -230,33 +262,31 @@
     }
 
     async function loadRecentDonations() {
+        const tbody = $("#recent-list");
         try {
             const items = await apiFetch("/api/donations/recent");
             renderRecentDonations(items);
         } catch (err) {
             logError("loadRecentDonations", err);
-            renderRecentDonations([]);
+            if (tbody && !connectionState.everConnected) {
+                tbody.innerHTML =
+                    '<tr class="empty-row"><td colspan="5">' +
+                    "Cannot load contributions. Check your connection." +
+                    "</td></tr>";
+            }
         }
     }
 
     // ============================================================
-    // 6. Donation Form — فرم کمک کردن
+    // 8. Donation Form — فرم کمک کردن
     // ============================================================
 
-    /**
-     * وضعیت فعلی درخواست پرداخت
-     * بعد از submit فرم پر میشه و برای polling استفاده میشه
-     */
     var currentPayment = {
         requestId: null,
         pollTimer: null,
         pollStartedAt: 0
     };
 
-    /**
-     * اعتبارسنجی ورودی فرم
-     * برمی‌گردونه: { ok: true, data: {...} } یا { ok: false, error: "..." }
-     */
     function validateForm(form) {
         var name = (form.name.value || "").trim().slice(0, 40);
         var message = (form.message.value || "").trim().slice(0, 120);
@@ -298,11 +328,9 @@
         };
     }
 
-    /**
-     * نمایش پیام خطا در بالای فرم (بدون alert)
-     */
     function showFormError(msg) {
         var form = $("#donation-form");
+        if (!form) return;
         var old = form.querySelector(".form-error");
         if (old) old.remove();
 
@@ -320,9 +348,6 @@
         }, 6000);
     }
 
-    /**
-     * نمایش پنل پرداخت بعد از ایجاد درخواست
-     */
     function showPaymentPanel(payment) {
         var panel = $("#payment-panel");
         if (!panel) return;
@@ -338,9 +363,6 @@
         panel.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
-    /**
-     * کپی آدرس کیف پول به clipboard
-     */
     function setupCopyButton() {
         var btn = $("#btn-copy-address");
         if (!btn) return;
@@ -355,7 +377,6 @@
                     btn.textContent = original;
                 }, 1500);
             } catch (err) {
-                // fallback قدیمی
                 var ta = document.createElement("textarea");
                 ta.value = addr;
                 document.body.appendChild(ta);
@@ -372,9 +393,6 @@
         });
     }
 
-    /**
-     * شروع polling برای بررسی وضعیت پرداخت
-     */
     function startPaymentPolling(requestId) {
         stopPaymentPolling();
 
@@ -382,7 +400,6 @@
         currentPayment.pollStartedAt = Date.now();
 
         var tick = async function () {
-            // بررسی تایم‌اوت
             if (Date.now() - currentPayment.pollStartedAt >
                 window.APP_CONFIG.PAYMENT_POLL_TIMEOUT_MS) {
                 stopPaymentPolling();
@@ -401,7 +418,6 @@
 
                 if (data.status === "CONFIRMED" && data.donationId) {
                     stopPaymentPolling();
-                    // انتقال به صفحه تشکر
                     window.location.href =
                         window.APP_CONFIG.THANKYOU_PATH +
                         "?id=" + encodeURIComponent(data.donationId);
@@ -435,7 +451,6 @@
             );
         };
 
-        // اولین بررسی بعد از 5 ثانیه
         currentPayment.pollTimer = setTimeout(tick, 5000);
     }
 
@@ -446,9 +461,6 @@
         }
     }
 
-    /**
-     * هندلر submit فرم
-     */
     async function handleFormSubmit(e) {
         e.preventDefault();
 
@@ -470,13 +482,8 @@
                 body: validation.data
             });
 
-            // پنهان کردن فرم
             form.classList.add("hidden");
-
-            // نمایش پنل پرداخت
             showPaymentPanel(result);
-
-            // شروع polling
             startPaymentPolling(result.requestId);
         } catch (err) {
             logError("submit", err);
@@ -496,7 +503,33 @@
     }
 
     // ============================================================
-    // 7. Init — راه‌اندازی اولیه
+    // 9. Retry Logic — تلاش دوباره
+    // ============================================================
+
+    function retryAll() {
+        loadStats();
+        loadMilestones();
+        loadLeaderboard();
+        loadRecentDonations();
+    }
+
+    function setupRetryButton() {
+        var btn = $("#connection-retry");
+        if (!btn) return;
+
+        btn.addEventListener("click", function () {
+            btn.disabled = true;
+            btn.textContent = "Retrying...";
+            retryAll();
+            setTimeout(function () {
+                btn.disabled = false;
+                btn.textContent = "Retry";
+            }, 2000);
+        });
+    }
+
+    // ============================================================
+    // 10. Init — راه‌اندازی اولیه
     // ============================================================
 
     function setYear() {
@@ -507,12 +540,9 @@
     function init() {
         setYear();
         setupDonationForm();
+        setupRetryButton();
 
-        // بارگذاری موازی همه بخش‌های داینامیک
-        loadStats();
-        loadMilestones();
-        loadLeaderboard();
-        loadRecentDonations();
+        retryAll();
 
         // رفرش آمار هر 60 ثانیه
         setInterval(function () {
@@ -520,9 +550,15 @@
             loadRecentDonations();
             loadLeaderboard();
         }, 60000);
+
+        // اگه ارتباط قطع بود، هر 30 ثانیه دوباره تلاش کن
+        setInterval(function () {
+            if (connectionState.failing) {
+                retryAll();
+            }
+        }, 30000);
     }
 
-    // وقتی DOM آماده شد اجرا کن
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", init);
     } else {

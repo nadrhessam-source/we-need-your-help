@@ -8,6 +8,19 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+        <!-- ============================================ -->
+    <!-- CONNECTION BANNER: نمایش خطای ارتباط با سرور -->
+    <!-- ============================================ -->
+    <div id="connection-banner" class="connection-banner hidden" role="alert">
+        <div class="container connection-banner-inner">
+            <span class="connection-banner-text">
+                ⚠️ Cannot reach the server. Some data may be unavailable.
+            </span>
+            <button type="button" id="connection-retry" class="connection-retry">
+                Retry
+            </button>
+        </div>
+    </div>
 
     <!-- ============================================ -->
     <!-- HEADER: نوار بالا با لینک‌های شبکه‌های اجتماعی -->

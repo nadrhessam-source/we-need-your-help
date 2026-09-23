@@ -12,7 +12,7 @@ window.APP_CONFIG = {
     // در محیط development: می‌تونی از worker محلی یا نسخه deploy شده استفاده کنی
     // در محیط production: دامنه‌ی نهایی خودت
     // ------------------------------------------------------------
-    API_BASE_URL: "https://api.we-need-your-help.example.workers.dev",
+    API_BASE_URL: "https://we-need-your-help-api.nadrhessam.workers.dev",
 
     // ------------------------------------------------------------
     // فاصله زمانی polling برای بررسی وضعیت پرداخت (میلی‌ثانیه)

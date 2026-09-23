@@ -73,7 +73,7 @@
 
     function hideConnectionBanner() {
         connectionState.failing = false;
-        var dot = 20 20 12 61 79 80 81 98 701 33 100 204 250 395 398 399"#connection-dot");
+        var dot = $("#connection-dot");
         if (dot) {
             dot.classList.remove("disconnected", "checking");
             dot.classList.add("connected");

@@ -2,7 +2,7 @@ name: Daily Content & Video Generation
 
 on:
   schedule:
-    - cron: '0 9 * * *'   # هر روز 9:00 UTC
+    - cron: '0 9 * * *'
   workflow_dispatch:
 
 permissions:
@@ -24,11 +24,8 @@ jobs:
 
       - name: Install FFmpeg
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-
-      - name: Verify FFmpeg
-        run: ffmpeg -version | head -3
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
 
       - name: Generate daily content
         run: node scripts/content-engine.js
@@ -36,21 +33,21 @@ jobs:
       - name: Generate daily video
         run: node scripts/video-engine.js
 
-      - name: Show generated content
+      - name: Summary
         run: |
-          echo "=== Post text ==="
+          echo "=== POST TEXT ==="
           cat tmp/post-*.txt
           echo ""
-          echo "=== Metadata ==="
+          echo "=== META ==="
           cat tmp/meta-*.json
           echo ""
-          echo "=== Video info ==="
+          echo "=== VIDEO FILE ==="
           ls -lh tmp/video-*.mp4
 
-      - name: Upload content & video artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: daily-${{ github.run_id }}
+          name: daily-content-${{ github.run_id }}
           path: |
             tmp/post-*.txt
             tmp/meta-*.json

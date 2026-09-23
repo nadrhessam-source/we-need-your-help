@@ -1,22 +1,18 @@
 name: Deploy Frontend to GitHub Pages
 
 on:
-  # وقتی فایلی در web/ تغییر کرد
   push:
     branches: [main]
     paths:
       - 'web/**'
       - '.github/workflows/deploy-frontend.yml'
-  # امکان اجرای دستی از تب Actions
   workflow_dispatch:
 
-# دسترسی‌های لازم برای deploy
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# اجازه فقط یک deploy همزمان
 concurrency:
   group: "pages"
   cancel-in-progress: false
@@ -29,15 +25,14 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
-          # فقط محتوای پوشه web/ رو به‌عنوان سایت آپلود کن
           path: './web'
 
       - name: Deploy to GitHub Pages

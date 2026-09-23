@@ -1,20 +1,17 @@
-name: Daily Content Generation
+name: Daily Content & Video Generation
 
 on:
-  # اجرای زمان‌بندی‌شده — هر روز ساعت 9:00 UTC (12:30 تهران)
   schedule:
-    - cron: '0 9 * * *'
-  # امکان اجرای دستی از تب Actions
+    - cron: '0 9 * * *'   # هر روز 9:00 UTC
   workflow_dispatch:
 
-# دسترسی برای نوشتن artifact
 permissions:
   contents: read
 
 jobs:
   generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -25,24 +22,38 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Verify FFmpeg
+        run: ffmpeg -version | head -3
+
       - name: Generate daily content
-        id: content
         run: node scripts/content-engine.js
+
+      - name: Generate daily video
+        run: node scripts/video-engine.js
 
       - name: Show generated content
         run: |
-          echo "=== Generated post ==="
+          echo "=== Post text ==="
           cat tmp/post-*.txt
           echo ""
           echo "=== Metadata ==="
           cat tmp/meta-*.json
+          echo ""
+          echo "=== Video info ==="
+          ls -lh tmp/video-*.mp4
 
-      - name: Upload content artifact
+      - name: Upload content & video artifact
         uses: actions/upload-artifact@v4
         with:
-          name: daily-content-${{ github.run_id }}
+          name: daily-${{ github.run_id }}
           path: |
             tmp/post-*.txt
             tmp/meta-*.json
             tmp/report-*.json
+            tmp/video-*.mp4
           retention-days: 30

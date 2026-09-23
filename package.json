@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "An internet experiment. Not a charity.",
-  "type": "commonjs",
   "scripts": {
     "content": "node scripts/content-engine.js",
-    "publish": "node scripts/publish.js"
+    "video": "node scripts/video-engine.js",
+    "daily": "npm run content && npm run video"
   }
 }

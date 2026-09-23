@@ -63,15 +63,23 @@
     function showConnectionBanner() {
         if (connectionState.failing) return;
         connectionState.failing = true;
-        var banner = $("#connection-banner");
-        if (banner) banner.classList.remove("hidden");
+        var dot = $("#connection-dot");
+        if (dot) {
+            dot.classList.remove("connected", "checking");
+            dot.classList.add("disconnected");
+            dot.title = "Cannot reach server — click to retry";
+        }
     }
 
     function hideConnectionBanner() {
         if (!connectionState.failing) return;
         connectionState.failing = false;
-        var banner = $("#connection-banner");
-        if (banner) banner.classList.add("hidden");
+        var dot = $("#connection-dot");
+        if (dot) {
+            dot.classList.remove("disconnected", "checking");
+            dot.classList.add("connected");
+            dot.title = "Connected to server";
+        }
     }
 
     function reportNetworkSuccess() {
@@ -514,17 +522,11 @@
     }
 
     function setupRetryButton() {
-        var btn = $("#connection-retry");
-        if (!btn) return;
-
-        btn.addEventListener("click", function () {
-            btn.disabled = true;
-            btn.textContent = "Retrying...";
+        var dot = $("#connection-dot");
+        if (!dot) return;
+        dot.addEventListener("click", function () {
+            if (!connectionState.failing) return;
             retryAll();
-            setTimeout(function () {
-                btn.disabled = false;
-                btn.textContent = "Retry";
-            }, 2000);
         });
     }
 

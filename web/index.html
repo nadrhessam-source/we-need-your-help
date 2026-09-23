@@ -11,23 +11,12 @@
         <!-- ============================================ -->
     <!-- CONNECTION BANNER: نمایش خطای ارتباط با سرور -->
     <!-- ============================================ -->
-    <div id="connection-banner" class="connection-banner hidden" role="alert">
-        <div class="container connection-banner-inner">
-            <span class="connection-banner-text">
-                ⚠️ Cannot reach the server. Some data may be unavailable.
-            </span>
-            <button type="button" id="connection-retry" class="connection-retry">
-                Retry
-            </button>
-        </div>
-    </div>
-
-    <!-- ============================================ -->
+        <!-- ============================================ -->
     <!-- HEADER: نوار بالا با لینک‌های شبکه‌های اجتماعی -->
     <!-- ============================================ -->
     <header class="site-header">
         <div class="container header-inner">
-            <a href="/" class="logo">WE NEED YOUR HELP</a>
+            <a href="/" class="logo">WE NEED YOUR HELP <span id="connection-dot" class="connection-dot" title="Checking connection..."></span></a>
             <nav class="social-links">
                 <a href="#" target="_blank" rel="noopener" aria-label="X">X</a>
                 <a href="#" target="_blank" rel="noopener" aria-label="Reddit">Reddit</a>

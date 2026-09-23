@@ -782,6 +782,143 @@ async function handlePaymentStatus(env, requestId) {
 }
 
 /**
+ * GET /api/report
+ * گزارش کامل برای content engine
+ */
+async function handleReport(env) {
+    const now = new Date();
+    const todayUtc = now.toISOString().slice(0, 10);
+
+    // ابتدای امروز UTC
+    const todayStart = todayUtc + "T00:00:00.000Z";
+    // ابتدای دیروز UTC
+    const yesterdayDate = new Date(now.getTime() - 86400000);
+    const yesterdayUtc = yesterdayDate.toISOString().slice(0, 10);
+    const yesterdayStart = yesterdayUtc + "T00:00:00.000Z";
+
+    // آمار کل
+    const totalRaised = await getTotalRaised(env);
+    const totalDonors = await getTotalDonors(env);
+    const daysSinceLaunch = getDaysSinceLaunch();
+
+    // آمار دیروز
+    const yesterdayStats = await env.DB
+        .prepare(
+            "SELECT COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total, " +
+            "COALESCE(MAX(amount), 0) AS largest " +
+            "FROM donations WHERE status = 'CONFIRMED' " +
+            "AND confirmed_at >= ? AND confirmed_at < ?"
+        )
+        .bind(yesterdayStart, todayStart)
+        .first();
+
+    // کمک‌های دیروز
+    const yesterdayDonations = await env.DB
+        .prepare(
+            "SELECT donor_name, amount, network FROM donations " +
+            "WHERE status = 'CONFIRMED' AND confirmed_at >= ? AND confirmed_at < ? " +
+            "ORDER BY amount DESC"
+        )
+        .bind(yesterdayStart, todayStart)
+        .all();
+
+    // بزرگ‌ترین کمک همه‌وقت
+    const largestEver = await env.DB
+        .prepare("SELECT MAX(amount) AS max FROM donations WHERE status = 'CONFIRMED'")
+        .first();
+
+    // بزرگ‌ترین روز از نظر مجموع
+    const bestDay = await env.DB
+        .prepare(
+            "SELECT substr(confirmed_at, 1, 10) AS day, SUM(amount) AS total " +
+            "FROM donations WHERE status = 'CONFIRMED' " +
+            "GROUP BY substr(confirmed_at, 1, 10) " +
+            "ORDER BY total DESC LIMIT 1"
+        )
+        .first();
+
+    // Milestones
+    const milestones = await env.DB
+        .prepare("SELECT amount, status, reached_at FROM milestones ORDER BY amount ASC")
+        .all();
+
+    const milestoneList = (milestones.results || []).map((m) => ({
+        amount: Number(m.amount),
+        reached: m.status === "REACHED",
+        reachedAt: m.reached_at
+    }));
+
+    // جدیدترین milestone رسیده در 24 ساعت اخیر
+    const oneDayAgo = new Date(now.getTime() - 86400000).toISOString();
+    const newMilestone = milestoneList.find(
+        (m) => m.reached && m.reachedAt && m.reachedAt >= oneDayAgo
+    );
+
+    // رویدادها
+    const events = [];
+    const yd = {
+        count: Number(yesterdayStats.count) || 0,
+        total: Number(yesterdayStats.total) || 0,
+        largest: Number(yesterdayStats.largest) || 0
+    };
+
+    if (totalDonors === yd.count && totalDonors > 0) {
+        events.push("first_donation");
+    }
+    if (yd.count === 0 && totalDonors > 0) {
+        events.push("zero_day");
+    }
+    if (yd.count > 0 && yd.total < 10) {
+        events.push("small_day");
+    }
+    if (yd.count > 0 && yd.total >= 10 && yd.total < 100) {
+        events.push("normal_day");
+    }
+    if (yd.largest >= 100 && yd.largest < 1000) {
+        events.push("big_donation");
+    }
+    if (yd.largest >= 1000) {
+        events.push("huge_donation");
+    }
+    if (newMilestone) {
+        events.push("milestone");
+    }
+    if (
+        bestDay &&
+        bestDay.day === yesterdayUtc &&
+        yd.total > 0
+    ) {
+        events.push("record_day");
+    }
+
+    return jsonCors({
+        generatedAt: now.toISOString(),
+        todayDate: todayUtc,
+        yesterdayDate: yesterdayUtc,
+        allTime: {
+            totalRaised: Math.round(totalRaised * 100) / 100,
+            totalDonors: totalDonors,
+            daysSinceLaunch: daysSinceLaunch
+        },
+        yesterday: {
+            count: yd.count,
+            total: Math.round(yd.total * 100) / 100,
+            largest: Math.round(yd.largest * 100) / 100,
+            donations: (yesterdayDonations.results || []).map((d) => ({
+                name: d.donor_name || "Anonymous",
+                amount: Number(d.amount),
+                network: d.network
+            }))
+        },
+        milestones: milestoneList,
+        newMilestone: newMilestone || null,
+        bestDay: bestDay ? { date: bestDay.day, total: Number(bestDay.total) } : null,
+        largestEver: Number(largestEver.max) || 0,
+        events: events
+    });
+}
+
+/**
  * GET /api/health
  */
 async function handleHealth(env) {
@@ -835,6 +972,9 @@ async function handleRequest(request, env) {
         }
         if (method === "GET" && path === "/api/stats") {
             return await handleStats(env);
+        }
+        if (method === "GET" && path === "/api/report") {
+            return await handleReport(env);
         }
         if (method === "GET" && path === "/api/milestones") {
             return await handleMilestones(env);

@@ -1,0 +1,11 @@
+{
+  "name": "we-need-your-help",
+  "version": "1.0.0",
+  "private": true,
+  "description": "An internet experiment. Not a charity.",
+  "type": "commonjs",
+  "scripts": {
+    "content": "node scripts/content-engine.js",
+    "publish": "node scripts/publish.js"
+  }
+}

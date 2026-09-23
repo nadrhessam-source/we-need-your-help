@@ -1,0 +1,12 @@
+
+# ---------- Generated videos (should be committed) ----------
+!tmp/
+!tmp/video-*.mp4
+!tmp/post-*.txt
+!tmp/meta-*.json
+
+# ---------- Generated content ----------
+# فایل‌های ویدیو و متن روزانه کامیت میشن (برای دسترسی در مرورگر)
+# ولی فایل‌های موقت و report کامیت نمیشن
+tmp/dt-*.txt
+tmp/report-*.json

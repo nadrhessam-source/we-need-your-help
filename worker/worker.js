@@ -10,7 +10,7 @@
 
 const CONFIG = {
     // تاریخ راه‌اندازی پروژه (YYYY-MM-DD) — برای Days Since Launch
-    LAUNCH_DATE: "2026-01-01",
+    LAUNCH_DATE: "2026-09-23",
 
     // انقضای درخواست پرداخت (دقیقه)
     PAYMENT_REQUEST_TTL_MINUTES: 60,
@@ -37,7 +37,7 @@ const CONFIG = {
                 address: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
                 decimals: 6
             },
-            destination: "REPLACE_ME_WITH_YOUR_POLYGON_ADDRESS",
+            destination: "0xf80C6b072AF48331Bd03E3a9355C305aab02146A",
             confirmations: 12
         },
         base: {
@@ -50,7 +50,7 @@ const CONFIG = {
                 address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
                 decimals: 6
             },
-            destination: "REPLACE_ME_WITH_YOUR_BASE_ADDRESS",
+            destination: "0xf80C6b072AF48331Bd03E3a9355C305aab02146A",
             confirmations: 12
         },
         ethereum: {
@@ -63,7 +63,7 @@ const CONFIG = {
                 address: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
                 decimals: 6
             },
-            destination: "REPLACE_ME_WITH_YOUR_ETHEREUM_ADDRESS",
+            destination: "0xf80C6b072AF48331Bd03E3a9355C305aab02146A",
             confirmations: 12
         },
         tron: {
@@ -76,7 +76,7 @@ const CONFIG = {
                 address: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
                 decimals: 6
             },
-            destination: "REPLACE_ME_WITH_YOUR_TRON_ADDRESS",
+            destination: "TGD6jBjf7Dwi89JSbCMFENkD665G73uKzT",
             confirmations: 19,
             isTron: true
         }

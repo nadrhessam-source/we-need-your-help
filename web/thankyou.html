@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Thank You — WE NEED YOUR HELP</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <main class="thankyou-page">
+        <div class="thankyou-content">
+
+            <h1 class="thankyou-title">THANK YOU ❤️</h1>
+
+            <p class="thankyou-message" id="ty-message">
+                We're verifying your contribution...
+            </p>
+
+            <div class="thankyou-details" id="ty-details" style="display:none;">
+                <dl>
+                    <dt>Amount</dt>
+                    <dd id="ty-amount">—</dd>
+
+                    <dt>Name</dt>
+                    <dd id="ty-name">—</dd>
+
+                    <dt>Network</dt>
+                    <dd id="ty-network">—</dd>
+
+                    <dt>Transaction</dt>
+                    <dd id="ty-tx">—</dd>
+                </dl>
+            </div>
+
+            <a href="/" class="btn-back">← Back to home</a>
+        </div>
+    </main>
+
+    <script src="config.js"></script>
+    <script>
+    (function () {
+        "use strict";
+
+        function $(sel) { return document.querySelector(sel); }
+
+        function getQueryParam(name) {
+            var params = new URLSearchParams(window.location.search);
+            return params.get(name);
+        }
+
+        function formatCurrency(n) {
+            return "$" + (Number(n) || 0).toFixed(2);
+        }
+
+        function shortenHash(h) {
+            if (!h || h.length < 14) return h || "—";
+            return h.slice(0, 8) + "..." + h.slice(-6);
+        }
+
+        function escapeHtml(s) {
+            if (s === null || s === undefined) return "";
+            return String(s)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
+
+        async function loadDonation() {
+            var id = getQueryParam("id");
+            if (!id) {
+                showError("Missing donation ID.");
+                return;
+            }
+
+            try {
+                var url = window.APP_CONFIG.API_BASE_URL.replace(/\/$/, "") +
+                    "/api/donations/" + encodeURIComponent(id);
+                var res = await fetch(url, { headers: { "Accept": "application/json" } });
+
+                if (res.status === 404) {
+                    showError("We couldn't find this donation.");
+                    return;
+                }
+                if (!res.ok) {
+                    showError("Something went wrong loading your donation.");
+                    return;
+                }
+
+                var data = await res.json();
+                renderDonation(data);
+            } catch (err) {
+                if (window.APP_CONFIG.DEBUG) console.error(err);
+                showError("Connection error. Please refresh the page.");
+            }
+        }
+
+        function renderDonation(d) {
+            var msg = $("#ty-message");
+            var details = $("#ty-details");
+
+            msg.innerHTML =
+                "You just gave us <strong>" + formatCurrency(d.amount) + "</strong>.<br><br>" +
+                "We still don't know why you did that.<br><br>" +
+                "But we appreciate it.";
+
+            $("#ty-amount").textContent = formatCurrency(d.amount);
+            $("#ty-name").textContent = d.name || "Anonymous";
+            $("#ty-network").textContent =
+                (window.APP_CONFIG.NETWORK_DISPLAY_NAMES[d.network] || d.network || "—");
+            $("#ty-tx").textContent = shortenHash(d.transactionHash);
+
+            details.style.display = "block";
+        }
+
+        function showError(msg) {
+            $("#ty-message").textContent = msg;
+        }
+
+        document.addEventListener("DOMContentLoaded", loadDonation);
+    })();
+    </script>
+</body>
+</html>

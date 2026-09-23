@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="We Need Your Help is an internet experiment to see how much money strangers are willing to give us for absolutely no reason.">
+    <title>WE NEED YOUR HELP</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- ============================================ -->
+    <!-- HEADER: نوار بالا با لینک‌های شبکه‌های اجتماعی -->
+    <!-- ============================================ -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <a href="/" class="logo">WE NEED YOUR HELP</a>
+            <nav class="social-links">
+                <a href="#" target="_blank" rel="noopener" aria-label="X">X</a>
+                <a href="#" target="_blank" rel="noopener" aria-label="Reddit">Reddit</a>
+                <a href="#" target="_blank" rel="noopener" aria-label="Instagram">Instagram</a>
+                <a href="#" target="_blank" rel="noopener" aria-label="TikTok">TikTok</a>
+                <a href="#" target="_blank" rel="noopener" aria-label="YouTube">YouTube</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+
+        <!-- ============================================ -->
+        <!-- HERO: بخش اصلی با شعار پروژه -->
+        <!-- ============================================ -->
+        <section class="hero">
+            <div class="container">
+                <h1 class="hero-title">WE NEED YOUR HELP</h1>
+                <p class="hero-subtitle">
+                    We Need Your Help is an internet experiment to see how much
+                    money strangers are willing to give us for absolutely no reason.
+                </p>
+                <p class="hero-disclaimer">
+                    This is <strong>NOT</strong> a charity. We make no claims about
+                    helping anyone but ourselves. This is an experiment.
+                </p>
+            </div>
+        </section>
+
+        <!-- ============================================ -->
+        <!-- STATS: آمار زنده (از API پر میشه) -->
+        <!-- ============================================ -->
+        <section class="stats">
+            <div class="container">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Raised</div>
+                        <div class="stat-value" id="stat-total">$0.00</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">People Who Helped</div>
+                        <div class="stat-value" id="stat-donors">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Days Since Launch</div>
+                        <div class="stat-value" id="stat-days">Day 0</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================ -->
+        <!-- DONATION FORM: فرم کمک کردن -->
+        <!-- ============================================ -->
+        <section class="donate" id="donate">
+            <div class="container">
+                <h2>Want to help?</h2>
+                <p class="section-desc">
+                    Fill out the form below. You'll be asked to send cryptocurrency
+                    directly from your wallet. You keep full control of your money
+                    until the moment you decide to send it.
+                </p>
+
+                <form id="donation-form" class="donation-form">
+                    <div class="form-group">
+                        <label for="donor-name">Name</label>
+                        <input
+                            type="text"
+                            id="donor-name"
+                            name="name"
+                            maxlength="40"
+                            placeholder="Anonymous"
+                            autocomplete="off"
+                        >
+                        <small>Leave empty to appear as "Anonymous"</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="donor-message">Message</label>
+                        <input
+                            type="text"
+                            id="donor-message"
+                            name="message"
+                            maxlength="120"
+                            placeholder="Why am I doing this?"
+                            autocomplete="off"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="donor-amount">Amount (USD)</label>
+                        <input
+                            type="number"
+                            id="donor-amount"
+                            name="amount"
+                            min="1"
+                            max="1000000"
+                            step="0.01"
+                            placeholder="5.00"
+                            required
+                        >
+                        <small>Minimum $1. Any amount above that is welcome.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="donor-network">Network</label>
+                        <select id="donor-network" name="network" required>
+                            <option value="polygon">Polygon (USDT / USDC)</option>
+                            <option value="base">Base (USDC)</option>
+                            <option value="ethereum">Ethereum (USDT / USDC)</option>
+                            <option value="tron">TRON (USDT)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <input type="checkbox" id="public-name" checked>
+                            Show my name publicly on the donation wall
+                        </label>
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <input type="checkbox" id="public-leaderboard" checked>
+                            Include me on the leaderboard
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn-help" id="btn-help">
+                        HELP US
+                    </button>
+
+                    <p class="form-note">
+                        By clicking HELP US, you agree that this is a voluntary
+                        contribution to an internet experiment, not a charitable
+                        donation.
+                    </p>
+                </form>
+
+                <!-- نمایش وضعیت پرداخت بعد از submit -->
+                <div id="payment-panel" class="payment-panel hidden">
+                    <h3>Send your contribution</h3>
+                    <p>Send exactly:</p>
+                    <div class="payment-amount" id="pay-amount">$0.00</div>
+                    <p>In:</p>
+                    <div class="payment-token" id="pay-token">USDT</div>
+                    <p>To this address on <span id="pay-network-name">Polygon</span>:</p>
+                    <div class="payment-address" id="pay-address">0x...</div>
+                    <button class="btn-copy" id="btn-copy-address">Copy Address</button>
+                    <p class="payment-note">
+                        After you send the transaction, come back to this page.
+                        We verify every payment directly from the blockchain.
+                        This usually takes 1-5 minutes.
+                    </p>
+                    <div class="payment-status" id="pay-status">Waiting for payment...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================ -->
+        <!-- MILESTONES: نقاط عطف -->
+        <!-- ============================================ -->
+        <section class="milestones">
+            <div class="container">
+                <h2>Milestones</h2>
+                <p class="section-desc">
+                    These milestones are just numbers. There is no reward for
+                    reaching them. We just think it's funny.
+                </p>
+                <ul class="milestone-list" id="milestone-list">
+                    <!-- از API پر میشه -->
+                </ul>
+            </div>
+        </section>
+
+        <!-- ============================================ -->
+        <!-- LEADERBOARD: سه نفر برتر -->
+        <!-- ============================================ -->
+        <section class="leaderboard">
+            <div class="container">
+                <h2>TOP HELPERS</h2>
+                <ol class="leaderboard-list" id="leaderboard-list">
+                    <!-- از API پر میشه -->
+                </ol>
+            </div>
+        </section>
+
+        <!-- ============================================ -->
+        <!-- RECENT HELPERS: جدول کمک‌های اخیر -->
+        <!-- ============================================ -->
+        <section class="recent">
+            <div class="container">
+                <h2>Recent Helpers</h2>
+                <div class="table-wrapper">
+                    <table class="donation-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Message</th>
+                                <th class="amount-col">Amount</th>
+                                <th>Network</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-list">
+                            <!-- از API پر میشه -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================ -->
+        <!-- TRANSPARENCY: توضیحات شفافیت -->
+        <!-- ============================================ -->
+        <section class="transparency">
+            <div class="container">
+                <h2>Transparency</h2>
+                <ul class="transparency-list">
+                    <li>This is not a charity. This is an internet experiment.</li>
+                    <li>We do not claim to help anyone but ourselves.</li>
+                    <li>The project owner may keep all funds.</li>
+                    <li>Every contribution is verified directly from the blockchain.</li>
+                    <li>We never fabricate donations, users, or milestones.</li>
+                    <li>You can choose to remain anonymous at any time.</li>
+                </ul>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ============================================ -->
+    <!-- FOOTER -->
+    <!-- ============================================ -->
+    <footer class="site-footer">
+        <div class="container">
+            <p>&copy; <span id="year"></span> WE NEED YOUR HELP — An internet experiment.</p>
+            <nav class="footer-social">
+                <a href="#" target="_blank" rel="noopener">X</a>
+                <a href="#" target="_blank" rel="noopener">Reddit</a>
+                <a href="#" target="_blank" rel="noopener">Instagram</a>
+                <a href="#" target="_blank" rel="noopener">TikTok</a>
+                <a href="#" target="_blank" rel="noopener">YouTube</a>
+            </nav>
+        </div>
+    </footer>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

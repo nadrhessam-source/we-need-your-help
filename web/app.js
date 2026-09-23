@@ -107,13 +107,22 @@
             opts.body = JSON.stringify(opts.body);
         }
 
+        const controller = new AbortController();
+        const timeoutMs = 12000;
+        const timer = setTimeout(function () {
+            try { controller.abort(); } catch (_) {}
+        }, timeoutMs);
+        opts.signal = controller.signal;
+
         let res;
         try {
             res = await fetch(url, opts);
         } catch (netErr) {
+            clearTimeout(timer);
             reportNetworkFailure();
             throw netErr;
         }
+        clearTimeout(timer);
 
         reportNetworkSuccess();
 

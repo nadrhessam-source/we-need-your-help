@@ -1,13 +1,10 @@
 name: Daily Content & Video Generation
 
 on:
-  # اجرای روزانه ساعت 9:00 UTC (12:30 تهران)
   schedule:
     - cron: '0 9 * * *'
-  # امکان اجرای دستی از تب Actions
   workflow_dispatch:
 
-# دسترسی write برای کامیت خودکار ویدیو
 permissions:
   contents: write
 
@@ -20,8 +17,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
-          # برای اینکه بتونیم کامیت بزنیم، توکن با دسترسی write لازمه
-          token: ${{ secrets.GITHUB_TOKEN }}n          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

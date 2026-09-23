@@ -814,7 +814,13 @@ async function handleRequest(request, env) {
 
     // پیش‌پرواز CORS
     if (method === "OPTIONS") {
-        return new Response(null, { status: 204, headers: corsHeaders() });
+        return new Response("", {
+            status: 204,
+            headers: Object.assign(
+                { "Content-Length": "0" },
+                corsHeaders()
+            )
+        });
     }
 
     // بررسی binding دیتابیس

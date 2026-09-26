@@ -31,11 +31,6 @@ const CONFIG = {
             name: "Polygon",
             chainId: 137,
             rpc: "https://polygon-rpc.com",
-            rpcFallbacks: [
-                "https://polygon.llamarpc.com",
-                "https://polygon-bor-rpc.publicnode.com",
-                "https://polygon.drpc.org"
-            ],
             explorer: "https://polygonscan.com",
             token: {
                 symbol: "USDT",
@@ -49,11 +44,6 @@ const CONFIG = {
             name: "Base",
             chainId: 8453,
             rpc: "https://mainnet.base.org",
-            rpcFallbacks: [
-                "https://base.llamarpc.com",
-                "https://base-rpc.publicnode.com",
-                "https://base.drpc.org"
-            ],
             explorer: "https://basescan.org",
             token: {
                 symbol: "USDC",
@@ -67,11 +57,6 @@ const CONFIG = {
             name: "Ethereum",
             chainId: 1,
             rpc: "https://eth.llamarpc.com",
-            rpcFallbacks: [
-                "https://ethereum-rpc.publicnode.com",
-                "https://eth.drpc.org",
-                "https://rpc.ankr.com/eth"
-            ],
             explorer: "https://etherscan.io",
             token: {
                 symbol: "USDT",
@@ -94,24 +79,6 @@ const CONFIG = {
             destination: "TGD6jBjf7Dwi89JSbCMFENkD665G73uKzT",
             confirmations: 19,
             isTron: true
-        },
-         "base-sepolia": {
-            name: "Base Sepolia (Testnet)",
-            chainId: 84532,
-            rpc: "https://sepolia.base.org",
-            rpcFallbacks: [
-                "https://base-sepolia-rpc.publicnode.com",
-                "https://base-sepolia.drpc.org"
-            ],
-            explorer: "https://sepolia.basescan.org",
-            token: {
-                symbol: "USDC",
-                address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-                decimals: 6
-            },
-            destination: "0xf80C6b072AF48331Bd03E3a9355C305aab02146A",
-            confirmations: 5,
-            isTestnet: true
         }
     }
 };
@@ -304,49 +271,16 @@ async function evmRpc(network, method, params) {
         params: params || []
     };
 
-    // لیست RPC ها: اولی اصلی، بقیه fallback
-    const rpcs = [net.rpc].concat(net.rpcFallbacks || []);
-    let lastError = null;
+    const res = await fetch(net.rpc, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+    });
 
-    for (let i = 0; i < rpcs.length; i++) {
-        const rpcUrl = rpcs[i];
-        try {
-            const res = await fetch(rpcUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body)
-            });
-
-            if (!res.ok) {
-                lastError = new Error("RPC " + net.name + " HTTP " + res.status);
-                continue;
-            }
-
-            let data;
-            try {
-                data = await res.json();
-            } catch (e) {
-                lastError = new Error("RPC " + net.name + " invalid JSON");
-                continue;
-            }
-
-            if (data.error) {
-                lastError = new Error(
-                    "RPC " + net.name + ": " + (data.error.message || "unknown")
-                );
-                continue;
-            }
-
-            // موفق شد
-            return data.result;
-        } catch (e) {
-            lastError = e;
-            continue;
-        }
-    }
-
-    // هیچ RPC کار نکرد
-    throw lastError || new Error("All RPCs failed for " + network);
+    if (!res.ok) throw new Error("RPC HTTP " + res.status);
+    const data = await res.json();
+    if (data.error) throw new Error("RPC: " + (data.error.message || "unknown"));
+    return data.result;
 }
 
 /**
@@ -712,18 +646,7 @@ async function generateUniqueAmount(env, baseAmount, network) {
 async function verifyEvmTxByHash(pr, txHash, net) {
     // دریافت receipt
     const receipt = await evmRpc(pr.network, "eth_getTransactionReceipt", [txHash]);
-    if (!receipt) {
-        // چک کن tx وجود داره یا نه
-        const tx = await evmRpc(pr.network, "eth_getTransactionByHash", [txHash]);
-        if (!tx) {
-            return {
-                invalid: true,
-                reason: "Transaction not found on Polygon. Please check the hash and try again."
-            };
-        }
-        // tx در mempool هست ولی هنوز mine نشده
-        return { pending: true, reason: "Transaction is in mempool. Waiting for confirmation." };
-    }
+    if (!receipt) return { pending: true };
 
     if (receipt.status !== "0x1") return { invalid: true, reason: "Transaction failed" };
 
@@ -803,7 +726,7 @@ async function verifyTronTxByHash(pr, txHash, net) {
     if (!ourTx) {
         return {
             invalid: true,
-            reason: "Transaction not found on TRON. Please check the hash and try again."
+            reason: "Transaction not found in recent TRC20 transfers"
         };
     }
 
@@ -1107,12 +1030,8 @@ async function handleSubmitTx(request, env) {
             verified = await verifyEvmTxByHash(pr, txHash, net);
         }
     } catch (err) {
-        const errMsg = (err && err.message) || "Unknown error";
-        console.error("submit-tx verify error:", errMsg);
-        return jsonCors({
-            error: "Failed to verify on blockchain",
-            detail: errMsg
-        }, 502);
+        console.error("submit-tx verify error:", err && err.message);
+        return jsonCors({ error: "Failed to verify on blockchain" }, 502);
     }
 
     if (!verified || verified.invalid) {

@@ -1,0 +1,30 @@
+name: Get Testnet Tokens
+
+on:
+  workflow_dispatch:
+    inputs:
+      wallet_address:
+        description: 'Your wallet address for Polygon Amoy'
+        required: true
+
+jobs:
+  claim-tokens:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Try claiming from multiple faucets
+        run: |
+          echo "Attempting to get testnet POL for address: ${{ github.event.inputs.wallet_address }}"
+          
+          # Faucet 1: QuickNode (بدون نیاز به لاگین)
+          echo "Trying QuickNode..."
+          curl -s -X POST "https://faucet.quicknode.com/api/faucet/polygon-amoy" \
+            -H "Content-Type: application/json" \
+            -d "{\"address\":\"${{ github.event.inputs.wallet_address }}\"}" || true
+          
+          # Faucet 2: Alchemy (بدون نیاز به لاگین)
+          echo "Trying Alchemy..."
+          curl -s -X POST "https://www.alchemy.com/faucets/polygon-amoy" \
+            -H "Content-Type: application/json" \
+            -d "{\"address\":\"${{ github.event.inputs.wallet_address }}\"}" || true
+          
+          echo "Done. Check your wallet balance in a few minutes."

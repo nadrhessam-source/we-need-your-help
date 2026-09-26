@@ -21,9 +21,45 @@ const TEXT_COLOR = "0xffffff";   // سفید
 const MUTED = "0x8a8a96";        // خاکستری
 const SUCCESS = "0x4dff88";      // سبز
 
+/**
+ * پیدا کردن فونت مناسب بر اساس OS
+ */
+function findFont(bold) {
+    const fs = require("fs");
+    const candidates = [];
+
+    if (bold) {
+        candidates.push(
+            // Linux (GitHub Actions)
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            // macOS
+            "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",
+            "/Library/Fonts/Arial Bold.ttf",
+            "/System/Library/Fonts/SFNS.ttf"
+        );
+    } else {
+        candidates.push(
+            // Linux
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            // macOS
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",
+            "/Library/Fonts/Arial.ttf",
+            "/System/Library/Fonts/SFNS.ttf"
+        );
+    }
+
+    for (const c of candidates) {
+        if (fs.existsSync(c)) return c;
+    }
+
+    throw new Error("No suitable font found. Tried: " + candidates.join(", "));
+}
+
 // فونت پیش‌فرض روی ubuntu-latest
-const FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf";
-const FONT_PATH_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
+const FONT_PATH = findFont(true);
+const FONT_PATH_REGULAR = findFont(false);
 
 // ---------- ابزارها ----------
 

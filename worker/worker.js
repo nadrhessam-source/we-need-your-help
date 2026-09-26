@@ -95,18 +95,18 @@ const CONFIG = {
             confirmations: 19,
             isTron: true
         },
-        "polygon-amoy": {
-            name: "Polygon Amoy (Testnet)",
-            chainId: 80002,
-            rpc: "https://rpc-amoy.polygon.technology",
+         "base-sepolia": {
+            name: "Base Sepolia (Testnet)",
+            chainId: 84532,
+            rpc: "https://sepolia.base.org",
             rpcFallbacks: [
-                "https://polygon-amoy-bor-rpc.publicnode.com",
-                "https://polygon-amoy.drpc.org"
+                "https://base-sepolia-rpc.publicnode.com",
+                "https://base-sepolia.drpc.org"
             ],
-            explorer: "https://amoy.polygonscan.com",
+            explorer: "https://sepolia.basescan.org",
             token: {
                 symbol: "USDC",
-                address: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582",
+                address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
                 decimals: 6
             },
             destination: "0xf80C6b072AF48331Bd03E3a9355C305aab02146A",

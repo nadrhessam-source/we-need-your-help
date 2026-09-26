@@ -13,7 +13,7 @@ const CONFIG = {
     LAUNCH_DATE: "2026-09-23",
 
     // انقضای درخواست پرداخت (دقیقه)
-    PAYMENT_REQUEST_TTL_MINUTES: 60,
+    PAYMENT_REQUEST_TTL_MINUTES: 30,
 
     // مهلت اضافی بعد از انقضا برای پذیرش پرداخت دیرهنگام (ساعت)
     PAYMENT_GRACE_HOURS: 24,
@@ -594,6 +594,176 @@ async function handleDonationById(env, id) {
     });
 }
 
+
+/**
+ * تولید مبلغ یکتا با استفاده از صف
+ * - offset 0 = baseAmount (بدون اعشار اضافه)
+ * - offset 1-99 = baseAmount + 0.01 تا + 0.99
+ * - اگه همه اشغال باشن → error
+ */
+async function generateUniqueAmount(env, baseAmount, network) {
+    const now = nowIso();
+
+    // همه درخواست‌های فعال با همین base amount و network
+    const { results } = await env.DB
+        .prepare(
+            "SELECT requested_amount FROM payment_requests " +
+            "WHERE network = ? AND status = 'AWAITING_PAYMENT' " +
+            "AND expires_at > ? " +
+            "AND requested_amount >= ? AND requested_amount < ? " +
+            "ORDER BY requested_amount ASC"
+        )
+        .bind(network, now, baseAmount, baseAmount + 1)
+        .all();
+
+    // جمع‌آوری offset های اشغال‌شده
+    const usedOffsets = {};
+    for (const row of results || []) {
+        const amt = Number(row.requested_amount);
+        const offset = Math.round((amt - baseAmount) * 100);
+        if (offset >= 0 && offset <= 99) {
+            usedOffsets[offset] = true;
+        }
+    }
+
+    // پیدا کردن کوچک‌ترین offset آزاد
+    for (let offset = 0; offset <= 99; offset++) {
+        if (!usedOffsets[offset]) {
+            return {
+                amount: baseAmount + offset / 100,
+                offset: offset
+            };
+        }
+    }
+
+    throw new Error("Too many active requests for this amount. Please try a different amount or wait a minute.");
+}
+
+
+/**
+ * تأیید تراکنش EVM با استفاده از tx hash مستقیم
+ */
+async function verifyEvmTxByHash(pr, txHash, net) {
+    // دریافت receipt
+    const receipt = await evmRpc(pr.network, "eth_getTransactionReceipt", [txHash]);
+    if (!receipt) return { pending: true };
+
+    if (receipt.status !== "0x1") return { invalid: true, reason: "Transaction failed" };
+
+    // دریافت transaction
+    const tx = await evmRpc(pr.network, "eth_getTransactionByHash", [txHash]);
+    if (!tx) return { pending: true };
+
+    // چک: آدرس مقصد = token contract
+    if (!tx.to || tx.to.toLowerCase() !== net.token.address.toLowerCase()) {
+        return { invalid: true, reason: "Not a token transfer" };
+    }
+
+    // چک: input data = transfer(address,uint256)
+    const input = tx.input || "";
+    if (!input.startsWith("0xa9059cbb")) {
+        return { invalid: true, reason: "Not a transfer call" };
+    }
+    if (input.length < 138) {
+        return { invalid: true, reason: "Invalid input data" };
+    }
+
+    // استخراج آدرس مقصد
+    const toAddr = "0x" + input.slice(34, 74);
+    if (toAddr.toLowerCase() !== net.destination.toLowerCase()) {
+        return { invalid: true, reason: "Wrong destination" };
+    }
+
+    // استخراج مقدار
+    const amountHex = "0x" + input.slice(74, 138);
+    const rawAmount = BigInt(amountHex);
+    const amount = Number(rawAmount) / Math.pow(10, net.token.decimals);
+    const expected = Number(pr.requested_amount);
+
+    // تلورانس ۱٪
+    if (amount < expected * 0.99 || amount > expected * 1.01) {
+        return {
+            invalid: true,
+            reason: "Amount mismatch. Expected " + expected + ", got " + amount
+        };
+    }
+
+    // چک confirmations
+    const currentBlock = await evmGetCurrentBlock(pr.network);
+    const txBlock = parseInt(receipt.blockNumber, 16);
+    const confirmations = currentBlock - txBlock;
+    if (confirmations < net.confirmations) {
+        return { pending: true, confirmations: confirmations };
+    }
+
+    return {
+        from: tx.from,
+        amount: amount,
+        txHash: txHash
+    };
+}
+
+/**
+ * تأیید تراکنش TRON با استفاده از tx hash مستقیم
+ */
+async function verifyTronTxByHash(pr, txHash, net) {
+    // از TronGrid: لیست تراکنش‌های TRC20 دریافتی
+    const url = net.rpc +
+        "/v1/accounts/" + encodeURIComponent(net.destination) +
+        "/transactions/trc20?only_to=true&limit=200&min_timestamp=0";
+
+    const res = await fetch(url, { headers: { "Accept": "application/json" } });
+    if (!res.ok) return { pending: true };
+
+    const data = await res.json();
+    if (!data.data) return { pending: true };
+
+    // پیدا کردن تراکنش ما
+    const ourTx = data.data.find(function (t) {
+        return t.transaction_id === txHash;
+    });
+
+    if (!ourTx) {
+        return {
+            invalid: true,
+            reason: "Transaction not found in recent TRC20 transfers"
+        };
+    }
+
+    // چک token
+    if (!ourTx.token_info || ourTx.token_info.address !== net.token.address) {
+        return { invalid: true, reason: "Wrong token" };
+    }
+
+    // چک amount
+    const decimals = ourTx.token_info.decimals || 6;
+    const amount = Number(ourTx.value) / Math.pow(10, decimals);
+    const expected = Number(pr.requested_amount);
+
+    if (amount < expected * 0.99 || amount > expected * 1.01) {
+        return {
+            invalid: true,
+            reason: "Amount mismatch. Expected " + expected + ", got " + amount
+        };
+    }
+
+    // چک confirmations (TRON هر ۳ ثانیه بلاک می‌سازه)
+    const txTime = ourTx.block_timestamp;
+    const now = Date.now();
+    const confirmations = Math.floor((now - txTime) / 3000);
+    if (confirmations < net.confirmations) {
+        return { pending: true, confirmations: confirmations };
+    }
+
+    return {
+        from: ourTx.from,
+        amount: amount,
+        txHash: txHash
+    };
+}
+
+
+
 /**
  * POST /api/payment/create
  * بدنه: { name, message, amount, network, publicName, publicLeaderboard }
@@ -606,11 +776,14 @@ async function handlePaymentCreate(request, env) {
         return jsonCors({ error: "Invalid JSON body" }, 400);
     }
 
-    // اعتبارسنجی مبلغ
-    const amount = Number(body.amount);
-    if (!isFinite(amount) || amount < 1 || amount > 1000000) {
+        // اعتبارسنجی مبلغ
+    const baseAmount = Number(body.amount);
+    if (!isFinite(baseAmount) || baseAmount < 1 || baseAmount > 1000000) {
         return jsonCors({ error: "Invalid amount" }, 400);
     }
+
+    // گرد کردن به ۲ رقم اعشار
+    const roundedBase = Math.round(baseAmount * 100) / 100;
 
     // اعتبارسنجی شبکه
     const network = String(body.network || "").toLowerCase();
@@ -648,6 +821,15 @@ async function handlePaymentCreate(request, env) {
         }
     }
 
+        // تولید مبلغ یکتا
+    let uniqueAmount;
+    try {
+        const result = await generateUniqueAmount(env, roundedBase, network);
+        uniqueAmount = result.amount;
+    } catch (err) {
+        return jsonCors({ error: err.message }, 503);
+    }
+
     const id = shortId();
     const createdAt = nowIso();
     const expiresAt = new Date(
@@ -664,7 +846,7 @@ async function handlePaymentCreate(request, env) {
         )
         .bind(
             id,
-            amount,
+            uniqueAmount,
             net.token.symbol,
             network,
             net.destination,
@@ -681,7 +863,9 @@ async function handlePaymentCreate(request, env) {
     return jsonCors({
         requestId: id,
         destination: net.destination,
-        amount: amount,
+        amount: uniqueAmount,     // ← مبلغ یکتا
+        baseAmount: roundedBase,  // ← مبلغ اصلی برای نمایش
+        hasUniqueAmount: uniqueAmount !== roundedBase,  // ← آیا اعشار داره؟
         token: net.token.symbol,
         network: network,
         expiresAt: expiresAt
@@ -780,6 +964,134 @@ async function handlePaymentStatus(env, requestId) {
 
     return jsonCors({ status: "AWAITING_PAYMENT" });
 }
+
+
+/**
+ * POST /api/payment/submit-tx
+ * کاربر tx hash رو دستی ارسال می‌کنه
+ */
+async function handleSubmitTx(request, env) {
+    let body;
+    try {
+        body = await request.json();
+    } catch (e) {
+        return jsonCors({ error: "Invalid JSON" }, 400);
+    }
+
+    const requestId = String(body.requestId || "").trim();
+    const txHash = String(body.txHash || "").trim();
+
+    // اعتبارسنجی
+    if (!/^[a-f0-9]{24}$/.test(requestId)) {
+        return jsonCors({ error: "Invalid request ID" }, 400);
+    }
+
+    const isEvmTx = /^0x[a-fA-F0-9]{64}$/.test(txHash);
+    const isTronTx = /^[a-fA-F0-9]{64}$/.test(txHash);
+    if (!isEvmTx && !isTronTx) {
+        return jsonCors({ error: "Invalid transaction hash format" }, 400);
+    }
+
+    // دریافت درخواست
+    const pr = await getPaymentRequestById(env, requestId);
+    if (!pr) {
+        return jsonCors({ error: "Payment request not found" }, 404);
+    }
+
+    if (pr.status === "CONFIRMED") {
+        return jsonCors({
+            status: "CONFIRMED",
+            donationId: pr.donation_id,
+            alreadyConfirmed: true
+        });
+    }
+
+    if (pr.status === "EXPIRED") {
+        return jsonCors({ error: "Payment request has expired" }, 400);
+    }
+
+    // چک تکراری نبودن tx hash
+    const used = await isTxHashUsed(env, txHash);
+    if (used) {
+        return jsonCors({ error: "This transaction is already registered" }, 400);
+    }
+
+    // تأیید از بلاکچین
+    const net = CONFIG.NETWORKS[pr.network];
+    if (!net) {
+        return jsonCors({ error: "Unsupported network" }, 500);
+    }
+
+    let verified;
+    try {
+        if (net.isTron) {
+            verified = await verifyTronTxByHash(pr, txHash, net);
+        } else {
+            verified = await verifyEvmTxByHash(pr, txHash, net);
+        }
+    } catch (err) {
+        console.error("submit-tx verify error:", err && err.message);
+        return jsonCors({ error: "Failed to verify on blockchain" }, 502);
+    }
+
+    if (!verified || verified.invalid) {
+        return jsonCors({
+            status: "INVALID",
+            error: (verified && verified.reason) || "Transaction does not match"
+        }, 400);
+    }
+
+    if (verified.pending) {
+        return jsonCors({
+            status: "PENDING",
+            message: "Transaction found but not enough confirmations",
+            confirmations: verified.confirmations || 0
+        });
+    }
+
+    // ثبت donation
+    const donationId = shortId();
+    const nowStr = nowIso();
+
+    await env.DB.batch([
+        env.DB.prepare(
+            "INSERT INTO donations " +
+            "(id, payment_request_id, donor_name, donor_message, " +
+            " amount, currency, network, transaction_hash, " +
+            " wallet_address, status, public_visibility, " +
+            " leaderboard_visibility, created_at, confirmed_at) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'CONFIRMED', ?, ?, ?, ?)"
+        ).bind(
+            donationId,
+            pr.id,
+            pr.donor_name || "Anonymous",
+            pr.donor_message || "",
+            verified.amount,
+            pr.currency,
+            pr.network,
+            txHash,
+            verified.from,
+            pr.public_visibility,
+            pr.leaderboard_visibility,
+            nowStr,
+            nowStr
+        ),
+        env.DB.prepare(
+            "UPDATE payment_requests SET status = 'CONFIRMED', " +
+            "transaction_hash = ?, donation_id = ? WHERE id = ?"
+        ).bind(txHash, donationId, pr.id)
+    ]);
+
+    // آپدیت milestones
+    const total = await getTotalRaised(env);
+    await updateMilestones(env, total);
+
+    return jsonCors({
+        status: "CONFIRMED",
+        donationId: donationId
+    });
+}
+
 
 /**
  * GET /api/report
@@ -996,6 +1308,10 @@ async function handleRequest(request, env) {
         const statusMatch = path.match(/^\/api\/payment\/status\/([a-f0-9]{24})$/);
         if (method === "GET" && statusMatch) {
             return await handlePaymentStatus(env, statusMatch[1]);
+        }
+
+        if (method === "POST" && path === "/api/payment/submit-tx") {
+            return await handleSubmitTx(request, env);
         }
 
         // ---------- POST endpoints ----------

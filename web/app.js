@@ -655,44 +655,8 @@
         if (el) el.textContent = String(new Date().getFullYear());
     }
 
-
-    function isTestnetEnabled() {
-        // چک URL param
-        if (window.location.search.indexOf("testnet=1") !== -1) return true;
-        // چک config
-        return window.APP_CONFIG.ENABLE_TESTNET === true;
-    }
-
-    function setupNetworkOptions() {
-        if (!isTestnetEnabled()) return;
-
-        var select = $("#donor-network");
-        if (!select) return;
-
-        var testnetNetworks = window.APP_CONFIG.TESTNET_NETWORKS || {};
-        Object.keys(testnetNetworks).forEach(function (key) {
-            // چک کن که از قبل نیست
-            var exists = false;
-            for (var i = 0; i < select.options.length; i++) {
-                if (select.options[i].value === key) {
-                    exists = true;
-                    break;
-                }
-            }
-            if (exists) return;
-
-            var opt = document.createElement("option");
-            opt.value = key;
-            opt.textContent = testnetNetworks[key] + " ⚠️";
-            opt.style.color = "#ffcc4d";
-            select.appendChild(opt);
-        });
-    }
-
-
     function init() {
         setYear();
-        setupNetworkOptions();
         setupDonationForm();
         setupRetryButton();
 

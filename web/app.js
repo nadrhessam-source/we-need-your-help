@@ -7,7 +7,7 @@
     "use strict";
 
     // ============================================================
-    // 1. Utility Functions — توابع کمکی
+    // 1. Utility Functions
     // ============================================================
 
     function escapeHtml(str) {
@@ -36,11 +36,6 @@
         return months[d.getUTCMonth()] + " " + d.getUTCDate();
     }
 
-    function shortenAddress(addr) {
-        if (!addr || addr.length < 12) return addr || "";
-        return addr.slice(0, 6) + "..." + addr.slice(-4);
-    }
-
     function logError(label, err) {
         if (window.APP_CONFIG.DEBUG) {
             console.error("[WNYH] " + label + ":", err);
@@ -52,7 +47,7 @@
     }
 
     // ============================================================
-    // 2. Connection Status — مدیریت وضعیت اتصال
+    // 2. Connection Status
     // ============================================================
 
     var connectionState = {
@@ -91,7 +86,7 @@
     }
 
     // ============================================================
-    // 3. API Fetch — فراخوانی API با مدیریت خطا
+    // 3. API Fetch
     // ============================================================
 
     async function apiFetch(path, options) {
@@ -139,7 +134,7 @@
     }
 
     // ============================================================
-    // 4. Stats Section — بخش آمار
+    // 4. Stats
     // ============================================================
 
     async function loadStats() {
@@ -154,7 +149,6 @@
             if (daysEl) daysEl.textContent = "Day " + (data.daysSinceLaunch || 0);
         } catch (err) {
             logError("loadStats", err);
-            // فقط اگه هنوز هیچ داده‌ای نگرفتیم، جایگزین کن
             if (!connectionState.everConnected) {
                 if (totalEl) totalEl.textContent = "—";
                 if (donorsEl) donorsEl.textContent = "—";
@@ -164,7 +158,7 @@
     }
 
     // ============================================================
-    // 5. Milestones Section — نقاط عطف
+    // 5. Milestones
     // ============================================================
 
     var DEFAULT_MILESTONES = [10, 100, 1000, 10000, 100000, 1000000];
@@ -205,7 +199,7 @@
     }
 
     // ============================================================
-    // 6. Leaderboard Section — سه نفر برتر
+    // 6. Leaderboard
     // ============================================================
 
     function renderLeaderboard(items) {
@@ -241,7 +235,7 @@
     }
 
     // ============================================================
-    // 7. Recent Helpers Table — جدول کمک‌های اخیر
+    // 7. Recent Donations
     // ============================================================
 
     function renderRecentDonations(items) {
@@ -294,7 +288,7 @@
     }
 
     // ============================================================
-    // 8. Donation Form — فرم کمک کردن
+    // 8. Donation Form
     // ============================================================
 
     var currentPayment = {
@@ -375,38 +369,152 @@
             window.APP_CONFIG.NETWORK_DISPLAY_NAMES[payment.network] || payment.network;
         $("#pay-status").textContent = "Waiting for payment...";
 
+        // نمایش/مخفی کردن توضیح اعشار
+        var noteEl = $("#pay-amount-note");
+        if (noteEl) {
+            if (payment.hasUniqueAmount) {
+                noteEl.classList.remove("hidden");
+            } else {
+                noteEl.classList.add("hidden");
+            }
+        }
+
+        // پاک کردن فیلد tx hash
+        var txInput = $("#tx-hash-input");
+        if (txInput) txInput.value = "";
+        var txMsg = $("#tx-hash-message");
+        if (txMsg) {
+            txMsg.textContent = "";
+            txMsg.className = "tx-hash-message";
+        }
+
+        // ذخیره requestId جاری برای submit-tx
+        currentPayment.requestId = payment.requestId;
+
         panel.classList.remove("hidden");
         panel.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     function setupCopyButton() {
         var btn = $("#btn-copy-address");
-        if (!btn) return;
-
-        btn.addEventListener("click", async function () {
-            var addr = $("#pay-address").textContent;
-            try {
-                await navigator.clipboard.writeText(addr);
-                var original = btn.textContent;
-                btn.textContent = "Copied!";
-                setTimeout(function () {
-                    btn.textContent = original;
-                }, 1500);
-            } catch (err) {
-                var ta = document.createElement("textarea");
-                ta.value = addr;
-                document.body.appendChild(ta);
-                ta.select();
+        if (btn) {
+            btn.addEventListener("click", async function () {
+                var addr = $("#pay-address").textContent;
                 try {
-                    document.execCommand("copy");
+                    await navigator.clipboard.writeText(addr);
+                    var original = btn.textContent;
                     btn.textContent = "Copied!";
-                    setTimeout(function () { btn.textContent = "Copy Address"; }, 1500);
-                } catch (_) {
-                    logError("copy", _);
+                    setTimeout(function () {
+                        btn.textContent = original;
+                    }, 1500);
+                } catch (err) {
+                    var ta = document.createElement("textarea");
+                    ta.value = addr;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    try {
+                        document.execCommand("copy");
+                        btn.textContent = "Copied!";
+                        setTimeout(function () { btn.textContent = "Copy Address"; }, 1500);
+                    } catch (_) {
+                        logError("copy", _);
+                    }
+                    document.body.removeChild(ta);
                 }
-                document.body.removeChild(ta);
+            });
+        }
+
+        // دکمه Submit TX
+        var submitBtn = $("#btn-submit-tx");
+        if (submitBtn) {
+            submitBtn.addEventListener("click", handleSubmitTx);
+        }
+
+        // Enter در input
+        var txInput = $("#tx-hash-input");
+        if (txInput) {
+            txInput.addEventListener("keypress", function (e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSubmitTx();
+                }
+            });
+        }
+    }
+
+    async function handleSubmitTx() {
+        var input = $("#tx-hash-input");
+        var btn = $("#btn-submit-tx");
+        var msg = $("#tx-hash-message");
+
+        if (!input || !btn || !msg) return;
+
+        var txHash = (input.value || "").trim();
+
+        if (!txHash) {
+            msg.textContent = "Please paste your transaction hash.";
+            msg.className = "tx-hash-message error";
+            return;
+        }
+
+        if (!/^(0x)?[a-fA-F0-9]{64}$/.test(txHash)) {
+            msg.textContent = "Invalid transaction hash format.";
+            msg.className = "tx-hash-message error";
+            return;
+        }
+
+        if (!txHash.startsWith("0x")) {
+            txHash = "0x" + txHash;
+        }
+
+        if (!currentPayment.requestId) {
+            msg.textContent = "No active payment request.";
+            msg.className = "tx-hash-message error";
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "Verifying...";
+        msg.textContent = "Checking blockchain...";
+        msg.className = "tx-hash-message pending";
+
+        try {
+            var result = await apiFetch("/api/payment/submit-tx", {
+                method: "POST",
+                body: {
+                    requestId: currentPayment.requestId,
+                    txHash: txHash
+                }
+            });
+
+            if (result.status === "CONFIRMED" && result.donationId) {
+                msg.textContent = "Confirmed! Redirecting...";
+                msg.className = "tx-hash-message success";
+                stopPaymentPolling();
+                setTimeout(function () {
+                    window.location.href =
+                        window.APP_CONFIG.THANKYOU_PATH +
+                        "?id=" + encodeURIComponent(result.donationId);
+                }, 1000);
+                return;
             }
-        });
+
+            if (result.status === "PENDING") {
+                msg.textContent = "Found, but waiting for confirmations (" +
+                    (result.confirmations || 0) + "). We'll keep checking.";
+                msg.className = "tx-hash-message pending";
+            } else {
+                msg.textContent = result.error || "Could not verify transaction.";
+                msg.className = "tx-hash-message error";
+            }
+        } catch (err) {
+            logError("submit-tx", err);
+            msg.textContent = err.message || "Verification failed. Please try again.";
+            msg.className = "tx-hash-message error";
+        }
+
+        btn.disabled = false;
+        btn.textContent = "Verify";
     }
 
     function startPaymentPolling(requestId) {
@@ -519,7 +627,7 @@
     }
 
     // ============================================================
-    // 9. Retry Logic — تلاش دوباره
+    // 9. Retry Logic
     // ============================================================
 
     function retryAll() {
@@ -539,7 +647,7 @@
     }
 
     // ============================================================
-    // 10. Init — راه‌اندازی اولیه
+    // 10. Init
     // ============================================================
 
     function setYear() {
@@ -554,14 +662,12 @@
 
         retryAll();
 
-        // رفرش آمار هر 60 ثانیه
         setInterval(function () {
             loadStats();
             loadRecentDonations();
             loadLeaderboard();
         }, 60000);
 
-        // اگه ارتباط قطع بود، هر 30 ثانیه دوباره تلاش کن
         setInterval(function () {
             if (connectionState.failing) {
                 retryAll();

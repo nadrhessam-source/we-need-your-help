@@ -8,12 +8,8 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-        <!-- ============================================ -->
-    <!-- CONNECTION BANNER: نمایش خطای ارتباط با سرور -->
-    <!-- ============================================ -->
-        <!-- ============================================ -->
-    <!-- HEADER: نوار بالا با لینک‌های شبکه‌های اجتماعی -->
-    <!-- ============================================ -->
+
+    <!-- HEADER -->
     <header class="site-header">
         <div class="container header-inner">
             <a href="/" class="logo">WE NEED YOUR HELP <span id="connection-dot" class="connection-dot" title="Checking connection..."></span></a>
@@ -29,9 +25,7 @@
 
     <main>
 
-        <!-- ============================================ -->
-        <!-- HERO: بخش اصلی با شعار پروژه -->
-        <!-- ============================================ -->
+        <!-- HERO -->
         <section class="hero">
             <div class="container">
                 <h1 class="hero-title">WE NEED YOUR HELP</h1>
@@ -46,9 +40,7 @@
             </div>
         </section>
 
-        <!-- ============================================ -->
-        <!-- STATS: آمار زنده (از API پر میشه) -->
-        <!-- ============================================ -->
+        <!-- STATS -->
         <section class="stats">
             <div class="container">
                 <div class="stats-grid">
@@ -68,9 +60,7 @@
             </div>
         </section>
 
-        <!-- ============================================ -->
-        <!-- DONATION FORM: فرم کمک کردن -->
-        <!-- ============================================ -->
+        <!-- DONATION FORM -->
         <section class="donate" id="donate">
             <div class="container">
                 <h2>Want to help?</h2>
@@ -83,41 +73,21 @@
                 <form id="donation-form" class="donation-form">
                     <div class="form-group">
                         <label for="donor-name">Name</label>
-                        <input
-                            type="text"
-                            id="donor-name"
-                            name="name"
-                            maxlength="40"
-                            placeholder="Anonymous"
-                            autocomplete="off"
-                        >
+                        <input type="text" id="donor-name" name="name" maxlength="40"
+                            placeholder="Anonymous" autocomplete="off">
                         <small>Leave empty to appear as "Anonymous"</small>
                     </div>
 
                     <div class="form-group">
                         <label for="donor-message">Message</label>
-                        <input
-                            type="text"
-                            id="donor-message"
-                            name="message"
-                            maxlength="120"
-                            placeholder="Why am I doing this?"
-                            autocomplete="off"
-                        >
+                        <input type="text" id="donor-message" name="message" maxlength="120"
+                            placeholder="Why am I doing this?" autocomplete="off">
                     </div>
 
                     <div class="form-group">
                         <label for="donor-amount">Amount (USD)</label>
-                        <input
-                            type="number"
-                            id="donor-amount"
-                            name="amount"
-                            min="1"
-                            max="1000000"
-                            step="0.01"
-                            placeholder="5.00"
-                            required
-                        >
+                        <input type="number" id="donor-amount" name="amount"
+                            min="1" max="1000000" step="0.01" placeholder="5.00" required>
                         <small>Minimum $1. Any amount above that is welcome.</small>
                     </div>
 
@@ -156,11 +126,21 @@
                     </p>
                 </form>
 
-                <!-- نمایش وضعیت پرداخت بعد از submit -->
+                <!-- PAYMENT PANEL -->
                 <div id="payment-panel" class="payment-panel hidden">
                     <h3>Send your contribution</h3>
                     <p>Send exactly:</p>
                     <div class="payment-amount" id="pay-amount">$0.00</div>
+
+                    <div class="payment-amount-note hidden" id="pay-amount-note">
+                        <p><strong>Please send exactly this amount.</strong></p>
+                        <p>
+                            The small decimals (e.g. <code>.01</code>) help us
+                            automatically match your payment to your request.
+                            Sending a different amount may delay confirmation.
+                        </p>
+                    </div>
+
                     <p>In:</p>
                     <div class="payment-token" id="pay-token">USDT</div>
                     <p>To this address on <span id="pay-network-name">Polygon</span>:</p>
@@ -172,13 +152,27 @@
                         This usually takes 1-5 minutes.
                     </p>
                     <div class="payment-status" id="pay-status">Waiting for payment...</div>
+
+                    <!-- TX HASH SECTION -->
+                    <div class="tx-hash-section" id="tx-hash-section">
+                        <p class="tx-hash-label">
+                            Already sent? Paste your transaction hash for instant confirmation:
+                        </p>
+                        <div class="tx-hash-input-group">
+                            <input type="text" id="tx-hash-input"
+                                placeholder="0x... or paste your transaction hash"
+                                autocomplete="off" spellcheck="false">
+                            <button type="button" class="btn-submit-tx" id="btn-submit-tx">
+                                Verify
+                            </button>
+                        </div>
+                        <div class="tx-hash-message" id="tx-hash-message"></div>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- ============================================ -->
-        <!-- MILESTONES: نقاط عطف -->
-        <!-- ============================================ -->
+        <!-- MILESTONES -->
         <section class="milestones">
             <div class="container">
                 <h2>Milestones</h2>
@@ -186,27 +180,19 @@
                     These milestones are just numbers. There is no reward for
                     reaching them. We just think it's funny.
                 </p>
-                <ul class="milestone-list" id="milestone-list">
-                    <!-- از API پر میشه -->
-                </ul>
+                <ul class="milestone-list" id="milestone-list"></ul>
             </div>
         </section>
 
-        <!-- ============================================ -->
-        <!-- LEADERBOARD: سه نفر برتر -->
-        <!-- ============================================ -->
+        <!-- LEADERBOARD -->
         <section class="leaderboard">
             <div class="container">
                 <h2>TOP HELPERS</h2>
-                <ol class="leaderboard-list" id="leaderboard-list">
-                    <!-- از API پر میشه -->
-                </ol>
+                <ol class="leaderboard-list" id="leaderboard-list"></ol>
             </div>
         </section>
 
-        <!-- ============================================ -->
-        <!-- RECENT HELPERS: جدول کمک‌های اخیر -->
-        <!-- ============================================ -->
+        <!-- RECENT HELPERS -->
         <section class="recent">
             <div class="container">
                 <h2>Recent Helpers</h2>
@@ -221,17 +207,13 @@
                                 <th>Date</th>
                             </tr>
                         </thead>
-                        <tbody id="recent-list">
-                            <!-- از API پر میشه -->
-                        </tbody>
+                        <tbody id="recent-list"></tbody>
                     </table>
                 </div>
             </div>
         </section>
 
-        <!-- ============================================ -->
-        <!-- TRANSPARENCY: توضیحات شفافیت -->
-        <!-- ============================================ -->
+        <!-- TRANSPARENCY -->
         <section class="transparency">
             <div class="container">
                 <h2>Transparency</h2>
@@ -248,9 +230,7 @@
 
     </main>
 
-    <!-- ============================================ -->
     <!-- FOOTER -->
-    <!-- ============================================ -->
     <footer class="site-footer">
         <div class="container">
             <p>&copy; <span id="year"></span> WE NEED YOUR HELP — An internet experiment.</p>

@@ -769,3 +769,132 @@ h2 {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.4; }
 }
+
+/* ---------- 15. Payment Amount Note ---------- */
+
+.payment-amount-note {
+    background: rgba(255, 204, 77, 0.1);
+    border: 1px solid var(--warning);
+    border-radius: var(--radius-sm);
+    padding: var(--space-sm) var(--space-md);
+    margin: var(--space-md) 0;
+    font-size: 0.85rem;
+    text-align: left;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.payment-amount-note p {
+    margin-bottom: 6px;
+}
+
+.payment-amount-note p:last-child {
+    margin-bottom: 0;
+}
+
+.payment-amount-note strong {
+    color: var(--warning);
+}
+
+.payment-amount-note code {
+    background: var(--bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--warning);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85em;
+}
+
+/* ---------- 16. TX Hash Section ---------- */
+
+.tx-hash-section {
+    margin-top: var(--space-lg);
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--border);
+}
+
+.tx-hash-label {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: var(--space-sm);
+    text-align: left;
+    line-height: 1.4;
+}
+
+.tx-hash-input-group {
+    display: flex;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+}
+
+.tx-hash-input-group input {
+    flex: 1;
+    padding: 10px var(--space-md);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    transition: border-color 0.15s ease;
+    min-width: 0;
+}
+
+.tx-hash-input-group input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.btn-submit-tx {
+    padding: 10px var(--space-lg);
+    background: var(--accent);
+    color: #ffffff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.btn-submit-tx:hover:not(:disabled) {
+    background: var(--accent-hover);
+}
+
+.btn-submit-tx:disabled {
+    background: var(--bg-elev-2);
+    color: var(--text-dim);
+    cursor: not-allowed;
+}
+
+.tx-hash-message {
+    font-size: 0.85rem;
+    text-align: left;
+    min-height: 20px;
+    padding: 2px 0;
+    line-height: 1.4;
+}
+
+.tx-hash-message.success {
+    color: var(--success);
+}
+
+.tx-hash-message.error {
+    color: #ff8a8a;
+}
+
+.tx-hash-message.pending {
+    color: var(--warning);
+}
+
+@media (max-width: 480px) {
+    .tx-hash-input-group {
+        flex-direction: column;
+    }
+
+    .btn-submit-tx {
+        width: 100%;
+    }
+}

@@ -7,13 +7,15 @@
 ## اولویت بالا (قبل از Launch)
 
 ### ۱. دامنه اختصاصی
-- [ ] خرید دامنه (~10-15 دلار در سال)
-- [ ] اتصال به Cloudflare
-- [ ] تنظیم DNS records
-- [ ] اتصال api.yourdomain.com به Worker (Custom Domain)
-- [ ] اتصال yourdomain.com به GitHub Pages (Custom Domain)
-- [ ] فعال‌سازی HTTPS (Full Strict)
-- [ ] تست دسترسی از ایران (بدون VPN)
+- [x] خرید دامنه: `we-need-your-help.xyz`
+- [x] اتصال دامنه به Cloudflare
+- [x] Nameserver ها به Cloudflare
+- [x] Frontend روی `we-need-your-help.xyz` (GitHub Pages)
+- [x] Backend روی `api.we-need-your-help.xyz` (Cloudflare Worker)
+- [x] SSL/HTTPS فعال (Full mode)
+- [x] Cloudflare Proxy فعال (CDN + DDoS protection)
+- [x] تست دسترسی از ایران بدون VPN ✅
+
 
 ### ۲. شبکه‌های اجتماعی
 - [ ] ساخت حساب X (Twitter) + 2FA

@@ -41,6 +41,10 @@ const fs = require("fs");
 const path = require("path");
 
 const { XPublisher } = require("./publishers/x");
+const { RedditPublisher } = require("./publishers/reddit");
+const { YouTubePublisher } = require("./publishers/youtube");
+const { InstagramPublisher } = require("./publishers/instagram");
+const { TikTokPublisher } = require("./publishers/tiktok");
 
 const TMP_DIR = path.join(__dirname, "..", "tmp");
 const API_BASE = process.env.WNYH_API_BASE ||
@@ -116,9 +120,17 @@ async function publishAll() {
     console.log("[publish] Template: " + (meta.template || "unknown"));
     console.log("[publish] Text length: " + postText.length);
 
+    let videoPath = null;
+    const videoFiles = fs.readdirSync(TMP_DIR)
+        .filter(function (f) { return f.startsWith("video-") && f.endsWith(".mp4"); })
+        .sort();
+    if (videoFiles.length > 0) {
+        videoPath = path.join(TMP_DIR, videoFiles[videoFiles.length - 1]);
+    }
+
     const content = {
         text: postText,
-        mediaPath: null,  // TODO: video
+        mediaPath: videoPath,
         date: meta.date,
         template: meta.template,
         events: meta.events || []
@@ -126,8 +138,11 @@ async function publishAll() {
 
     // لیست publisher ها
     const publishers = [
-        new XPublisher({})
-        // بعداً: YouTube، Reddit، Instagram، TikTok
+        new XPublisher({}),
+        new RedditPublisher({}),
+        new YouTubePublisher({}),
+        new InstagramPublisher({}),
+        new TikTokPublisher({})
     ];
 
     // اجرا موازی

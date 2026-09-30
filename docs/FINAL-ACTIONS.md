@@ -127,6 +127,76 @@
 - [ ] Solana support (اگه واقعاً درخواست بود)
 - [ ] دیتابیس Postgres (اگه D1 کافی نبود)
 
+
+### ۱۴. راه‌اندازی API Keys برای Social Publishers
+
+**زمان:** بعد از ساخت حساب‌های Social (نیاز به VPN)
+
+#### X (Twitter)
+- [ ] برو به https://developer.x.com
+- [ ] یک Project + App بساز
+- [ ] در تنظیمات App، "User authentication settings" → "OAuth 1.0a" رو فعال کن
+- [ ] Permissions: Read and Write
+- [ ] Callback URL: هر URL (چون فقط برای گرفتن token یک‌باره)
+- [ ] از Keys and tokens tab، اینا رو کپی کن:
+  - API Key → `X_API_KEY`
+  - API Secret → `X_API_SECRET`
+  - Access Token → `X_ACCESS_TOKEN`
+  - Access Token Secret → `X_ACCESS_SECRET`
+
+#### Reddit
+- [ ] برو به https://www.reddit.com/prefs/apps
+- [ ] "Create another app" → نوع: **script**
+- [ ] redirect uri: `http://localhost:8080`
+- [ ] اینا رو کپی کن:
+  - client_id (زیر نام app) → `REDDIT_CLIENT_ID`
+  - secret → `REDDIT_CLIENT_SECRET`
+- [ ] یوزرنیم اکانت: `REDDIT_USERNAME`
+- [ ] پسورد اکانت: `REDDIT_PASSWORD`
+- [ ] Subreddit مقصد: `REDDIT_SUBREDDIT` (مثلاً نام subreddit خودت)
+
+#### YouTube
+- [ ] برو به https://console.cloud.google.com
+- [ ] یک Project جدید بساز
+- [ ] YouTube Data API v3 رو فعال کن
+- [ ] OAuth consent screen رو تنظیم کن (External، Testing mode)
+- [ ] OAuth 2.0 Client ID بساز (نوع: Desktop app)
+- [ ] اینا رو کپی کن:
+  - Client ID → `YOUTUBE_CLIENT_ID`
+  - Client Secret → `YOUTUBE_CLIENT_SECRET`
+- [ ] با OAuth Playground، Refresh Token بگیر:
+  - برو به https://developers.google.com/oauthplayground
+  - تنظیمات → Use your own credentials
+  - Authorize: `https://www.googleapis.com/auth/youtube.upload`
+  - Exchange authorization code for tokens
+  - Refresh Token → `YOUTUBE_REFRESH_TOKEN`
+
+#### Instagram
+- [ ] نیاز به Facebook Business Account
+- [ ] برو به https://developers.facebook.com
+- [ ] App بساز → نوع: Business
+- [ ] Instagram Graph API رو اضافه کن
+- [ ] OAuth flow رو طی کن (نیاز به Business Account)
+- [ ] Long-lived Access Token → `INSTAGRAM_ACCESS_TOKEN`
+- [ ] Instagram Business User ID → `INSTAGRAM_USER_ID`
+- ⚠️ نیاز به App Review برای publish عمومی
+
+#### TikTok
+- [ ] برو به https://developers.tiktok.com
+- [ ] App بساز → Content Posting API
+- [ ] OAuth flow رو طی کن
+- [ ] Client Key → `TIKTOK_CLIENT_KEY`
+- [ ] Client Secret → `TIKTOK_CLIENT_SECRET`
+- [ ] Access Token → `TIKTOK_ACCESS_TOKEN`
+- [ ] Refresh Token → `TIKTOK_REFRESH_TOKEN`
+- ⚠️ App Approval اجباری (2-6 هفته)
+
+#### ذخیره در GitHub Secrets
+
+بعد از گرفتن همه کلیدها:
+- [ ] برو به repo → Settings → Secrets and variables → Actions
+- [ ] **New repository secret** برای هرکدوم
+- [ ] اسم‌ها دقیقاً مطابق بالا
 ---
 
 ## یادآوری

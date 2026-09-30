@@ -6,6 +6,7 @@
   "scripts": {
     "content": "node scripts/content-engine.js",
     "video": "node scripts/video-engine.js",
-    "daily": "npm run content && npm run video"
+    "publish": "node scripts/publish.js",
+    "daily": "npm run content && npm run video && npm run publish"
   }
 }

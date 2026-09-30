@@ -1231,6 +1231,60 @@ async function handleReport(env) {
 }
 
 /**
+ * POST /api/social/record
+ * ثبت نتیجه انتشار در D1
+ */
+async function handleSocialRecord(request, env) {
+    let body;
+    try {
+        body = await request.json();
+    } catch (e) {
+        return jsonCors({ error: "Invalid JSON" }, 400);
+    }
+
+    const platform = sanitizeText(body.platform, 40);
+    const contentType = sanitizeText(body.contentType, 40) || "daily";
+    const content = sanitizeText(body.content, 2000);
+    const status = sanitizeText(body.status, 20) || "PENDING";
+    const externalPostId = sanitizeText(body.externalPostId, 200) || null;
+    const mediaPath = sanitizeText(body.mediaPath, 500) || null;
+    const errorMessage = sanitizeText(body.errorMessage, 500) || null;
+
+    if (!platform || !content) {
+        return jsonCors({ error: "Missing platform or content" }, 400);
+    }
+
+    const now = nowIso();
+
+    try {
+        await env.DB
+            .prepare(
+                "INSERT OR IGNORE INTO social_posts " +
+                "(platform, content_type, content, media_path, status, " +
+                " external_post_id, error_message, created_at, published_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            )
+            .bind(
+                platform,
+                contentType,
+                content,
+                mediaPath,
+                status,
+                externalPostId,
+                errorMessage,
+                now,
+                status === "PUBLISHED" ? now : null
+            )
+            .run();
+
+        return jsonCors({ ok: true });
+    } catch (err) {
+        console.error("social record error:", err && err.message);
+        return jsonCors({ error: "Database error" }, 500);
+    }
+}
+
+/**
  * GET /api/health
  */
 async function handleHealth(env) {
@@ -1308,6 +1362,10 @@ async function handleRequest(request, env) {
         const statusMatch = path.match(/^\/api\/payment\/status\/([a-f0-9]{24})$/);
         if (method === "GET" && statusMatch) {
             return await handlePaymentStatus(env, statusMatch[1]);
+        }
+
+        if (method === "POST" && path === "/api/social/record") {
+            return await handleSocialRecord(request, env);
         }
 
         if (method === "POST" && path === "/api/payment/submit-tx") {

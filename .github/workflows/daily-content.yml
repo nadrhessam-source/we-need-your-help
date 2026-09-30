@@ -30,24 +30,26 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
 
-      - name: Verify FFmpeg
-        run: ffmpeg -version | head -3
-
       - name: Generate daily content
         run: node scripts/content-engine.js
 
       - name: Generate daily video
         run: node scripts/video-engine.js
 
+      - name: Publish to social media
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+        run: node scripts/publish.js
+
       - name: Summary
         run: |
           echo "=== POST TEXT ==="
           cat tmp/post-*.txt
           echo ""
-          echo "=== META ==="
-          cat tmp/meta-*.json
-          echo ""
-          echo "=== VIDEO FILE ==="
+          echo "=== VIDEO ==="
           ls -lh tmp/video-*.mp4
 
       - name: Upload artifact
@@ -57,16 +59,14 @@ jobs:
           path: |
             tmp/post-*.txt
             tmp/meta-*.json
-            tmp/report-*.json
             tmp/video-*.mp4
           retention-days: 30
 
-      - name: Commit video to repository
+      - name: Commit artifacts
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Add daily video (run ${{ github.run_id }})"
-          file_pattern: 'tmp/video-*.mp4 tmp/post-*.txt tmp/meta-*.json'
+          commit_message: "Add daily content (run ${{ github.run_id }})"
+          file_pattern: 'tmp/post-*.txt tmp/meta-*.json tmp/video-*.mp4'
           branch: main
           commit_user_name: "WNYH Bot"
           commit_user_email: "bot@weneedyourhelp.local"
-          commit_author: "WNYH Bot <bot@weneedyourhelp.local>"

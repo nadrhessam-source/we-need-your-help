@@ -37,6 +37,7 @@ jobs:
         run: node scripts/video-engine.js
 
       - name: Publish to social media
+        continue-on-error: true
         env:
           X_API_KEY: ${{ secrets.X_API_KEY }}
           X_API_SECRET: ${{ secrets.X_API_SECRET }}

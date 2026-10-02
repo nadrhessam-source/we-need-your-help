@@ -1,0 +1,8 @@
+{
+  "date": "2026-10-02",
+  "template": "zero_day",
+  "events": [
+    "zero_day"
+  ],
+  "generatedAt": "2026-10-02T15:15:35.488Z"
+}

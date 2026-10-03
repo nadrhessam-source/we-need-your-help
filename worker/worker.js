@@ -1224,7 +1224,7 @@ async function handleReport(env) {
     const DONOR_THRESHOLDS = [10, 50, 100, 500, 1000, 5000];
     for (const t of DONOR_THRESHOLDS) {
         // totalDonors الان = تعداد wallet یکتا
-        if (totalDonors >= t && (totalDonors - uniqueYesterdayDonors) < t) {
+        if (totalDonors >= t && uniqueYesterdayDonors > 0 && (totalDonors - uniqueYesterdayDonors) <= t) {
             events.push("donor_milestone_" + t);
             events.push("donor_milestone");
             break;

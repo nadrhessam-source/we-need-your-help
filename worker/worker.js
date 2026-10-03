@@ -1392,6 +1392,44 @@ async function handleSocialRecord(request, env) {
 }
 
 /**
+ * GET /api/admin/export
+ * Export کامل دیتابیس (فقط برای backup)
+ * نیاز به توکن امنیتی
+ */
+async function handleAdminExport(env, request) {
+    // بررسی توکن
+    const authHeader = request.headers.get("Authorization") || "";
+    const expectedToken = env.BACKUP_TOKEN || "";
+    if (!expectedToken) {
+        return jsonCors({ error: "Backup not configured" }, 503, request);
+    }
+    if (authHeader !== "Bearer " + expectedToken) {
+        return jsonCors({ error: "Unauthorized" }, 401, request);
+    }
+
+    try {
+        // Export همه جدول‌ها
+        const tables = ["donations", "payment_requests", "milestones", "social_posts", "cron_logs"];
+        const data = {};
+
+        for (const table of tables) {
+            const { results } = await env.DB
+                .prepare("SELECT * FROM " + table)
+                .all();
+            data[table] = results || [];
+        }
+
+        return jsonCors({
+            exportedAt: nowIso(),
+            data: data
+        }, 200, request);
+    } catch (err) {
+        console.error("export error:", err && err.message);
+        return jsonCors({ error: "Export failed" }, 500, request);
+    }
+}
+
+/**
  * GET /api/health
  */
 async function handleHealth(env) {
@@ -1550,6 +1588,10 @@ async function handleRequest(request, env) {
         // ---------- POST endpoints ----------
         if (method === "POST" && path === "/api/payment/create") {
             return await handlePaymentCreate(request, env);
+        }
+
+        if (method === "GET" && path === "/api/admin/export") {
+            return await handleAdminExport(env, request);
         }
 
         // ---------- 404 ----------

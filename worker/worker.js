@@ -30,7 +30,12 @@ const CONFIG = {
         polygon: {
             name: "Polygon",
             chainId: 137,
-            rpc: "https://polygon-rpc.com",
+            rpc: "https://polygon-bor-rpc.publicnode.com",
+            rpcFallbacks: [
+                "https://polygon.drpc.org",
+                "https://1rpc.io/matic",
+                "https://polygon-rpc.com"
+            ],
             explorer: "https://polygonscan.com",
             token: {
                 symbol: "USDT",
@@ -43,7 +48,11 @@ const CONFIG = {
         base: {
             name: "Base",
             chainId: 8453,
-            rpc: "https://mainnet.base.org",
+            rpc: "https://base-rpc.publicnode.com",
+            rpcFallbacks: [
+                "https://base.drpc.org",
+                "https://mainnet.base.org"
+            ],
             explorer: "https://basescan.org",
             token: {
                 symbol: "USDC",
@@ -56,7 +65,11 @@ const CONFIG = {
         ethereum: {
             name: "Ethereum",
             chainId: 1,
-            rpc: "https://eth.llamarpc.com",
+            rpc: "https://ethereum-rpc.publicnode.com",
+            rpcFallbacks: [
+                "https://eth.drpc.org",
+                "https://eth.llamarpc.com"
+            ],
             explorer: "https://etherscan.io",
             token: {
                 symbol: "USDT",
@@ -70,6 +83,10 @@ const CONFIG = {
             name: "TRON",
             chainId: null,
             rpc: "https://api.trongrid.io",
+            rpcFallbacks: [
+                "https://api.tronstack.io",
+                "https://api.trongrid.io"
+            ],
             explorer: "https://tronscan.org",
             token: {
                 symbol: "USDT",
@@ -294,16 +311,36 @@ async function evmRpc(network, method, params) {
         params: params || []
     };
 
-    const res = await fetch(net.rpc, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-    });
+    const rpcs = [net.rpc].concat(net.rpcFallbacks || []);
+    let lastError = null;
 
-    if (!res.ok) throw new Error("RPC HTTP " + res.status);
-    const data = await res.json();
-    if (data.error) throw new Error("RPC: " + (data.error.message || "unknown"));
-    return data.result;
+    for (const rpcUrl of rpcs) {
+        try {
+            const res = await fetch(rpcUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+
+            if (!res.ok) {
+                lastError = new Error("RPC " + rpcUrl + " HTTP " + res.status);
+                continue;
+            }
+
+            const data = await res.json();
+            if (data.error) {
+                lastError = new Error("RPC " + rpcUrl + ": " + (data.error.message || "unknown"));
+                continue;
+            }
+
+            return data.result;
+        } catch (e) {
+            lastError = e;
+            continue;
+        }
+    }
+
+    throw lastError || new Error("All RPCs failed for " + network);
 }
 
 /**
@@ -371,21 +408,36 @@ function parseEvmTransferLog(log, network) {
  */
 async function tronGetIncomingTransfers(network, minTimestampMs) {
     const net = CONFIG.NETWORKS[network];
-    const url =
-        net.rpc +
-        "/v1/accounts/" +
-        encodeURIComponent(net.destination) +
-        "/transactions/trc20" +
-        "?only_to=true&limit=200&min_timestamp=" +
-        minTimestampMs;
+    const rpcs = [net.rpc].concat(net.rpcFallbacks || []);
+    let lastError = null;
 
-    const res = await fetch(url, {
-        headers: { "Accept": "application/json" }
-    });
+    for (const rpcUrl of rpcs) {
+        try {
+            const url = rpcUrl +
+                "/v1/accounts/" +
+                encodeURIComponent(net.destination) +
+                "/transactions/trc20" +
+                "?only_to=true&limit=200&min_timestamp=" +
+                minTimestampMs;
 
-    if (!res.ok) throw new Error("TronGrid HTTP " + res.status);
-    const data = await res.json();
-    return data.data || [];
+            const res = await fetch(url, {
+                headers: { "Accept": "application/json" }
+            });
+
+            if (!res.ok) {
+                lastError = new Error("TronGrid " + rpcUrl + " HTTP " + res.status);
+                continue;
+            }
+
+            const data = await res.json();
+            return data.data || [];
+        } catch (e) {
+            lastError = e;
+            continue;
+        }
+    }
+
+    throw lastError || new Error("All Tron RPCs failed");
 }
 
 /**

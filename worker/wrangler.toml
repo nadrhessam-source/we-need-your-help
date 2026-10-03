@@ -1,0 +1,8 @@
+name = "we-need-your-help-api"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "we-need-your-help-db"
+database_id = "c54c5ab5-7299-4b95-aafb-dfddfb831a65"

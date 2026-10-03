@@ -1418,26 +1418,56 @@ async function handleHealth(env) {
  * - 60 request در دقیقه برای هر IP
  * - از D1 برای ذخیره استفاده نمی‌کنه (in-memory در global scope)
  */
-const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 دقیقه
 const RATE_LIMIT_MAX_REQUESTS = 60;
 
-function checkRateLimit(request) {
+async function checkRateLimit(request, env) {
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-    const now = Date.now();
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - RATE_LIMIT_WINDOW_MS);
 
-    let entry = rateLimitMap.get(ip);
-    if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
-        entry = { windowStart: now, count: 1 };
-        rateLimitMap.set(ip, entry);
+    // پاک کردن رکوردهای قدیمی (به‌صورت best-effort)
+    try {
+        await env.DB.prepare(
+            "DELETE FROM rate_limits WHERE window_start < ?"
+        ).bind(windowStart.toISOString()).run();
+    } catch (e) {
+        // نادیده بگیر
+    }
+
+    const row = await env.DB
+        .prepare("SELECT count, window_start FROM rate_limits WHERE ip = ?")
+        .bind(ip)
+        .first();
+
+    if (!row) {
+        await env.DB
+            .prepare("INSERT INTO rate_limits (ip, count, window_start) VALUES (?, 1, ?)")
+            .bind(ip, now.toISOString())
+            .run();
         return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - 1 };
     }
 
-    entry.count++;
-    if (entry.count > RATE_LIMIT_MAX_REQUESTS) {
+    const rowWindowStart = new Date(row.window_start).getTime();
+    if (now.getTime() - rowWindowStart > RATE_LIMIT_WINDOW_MS) {
+        await env.DB
+            .prepare("UPDATE rate_limits SET count = 1, window_start = ? WHERE ip = ?")
+            .bind(now.toISOString(), ip)
+            .run();
+        return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - 1 };
+    }
+
+    const newCount = Number(row.count) + 1;
+    if (newCount > RATE_LIMIT_MAX_REQUESTS) {
         return { allowed: false, remaining: 0 };
     }
-    return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - entry.count };
+
+    await env.DB
+        .prepare("UPDATE rate_limits SET count = ? WHERE ip = ?")
+        .bind(newCount, ip)
+        .run();
+
+    return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - newCount };
 }
 
 // ============================================================
@@ -1468,7 +1498,7 @@ async function handleRequest(request, env) {
     try {
         // بررسی rate limit برای endpoint های POST
         if (method === "POST") {
-            const rl = checkRateLimit(request);
+            const rl = await checkRateLimit(request, env);
             if (!rl.allowed) {
                 return jsonCors(
                     { error: "Too many requests. Please try again in a minute." },

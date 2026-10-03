@@ -10,3 +10,4 @@
 # ولی فایل‌های موقت و report کامیت نمیشن
 tmp/dt-*.txt
 tmp/report-*.json
+tmp/

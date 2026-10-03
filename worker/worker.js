@@ -1150,7 +1150,7 @@ async function handleSubmitTx(request, env) {
                 verified = await verifyEvmTxByHash(pr, txHash, net);
             }
             // فقط اگه جواب قطعی بود cache کن
-            if (verified && (verified.invalid || verified.from)) {
+            if (verified) {
                 await setVerifyCache(env, cacheKey, verified);
             }
         } catch (err) {

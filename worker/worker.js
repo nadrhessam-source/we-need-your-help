@@ -988,6 +988,47 @@ async function handlePaymentStatus(env, requestId, request) {
     return jsonCors({ status: "AWAITING_PAYMENT" });
 }
 
+/**
+ * خواندن از cache
+ */
+async function getVerifyCache(env, key) {
+    try {
+        const row = await env.DB
+            .prepare("SELECT result, created_at FROM verify_cache WHERE cache_key = ?")
+            .bind(key)
+            .first();
+        if (!row) return null;
+
+        // اگه بیشتر از ۵ دقیقه گذشته، expired در نظر بگیر
+        const created = new Date(row.created_at).getTime();
+        if (Date.now() - created > 5 * 60 * 1000) {
+            await env.DB.prepare("DELETE FROM verify_cache WHERE cache_key = ?").bind(key).run();
+            return null;
+        }
+
+        return JSON.parse(row.result);
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * نوشتن در cache
+ */
+async function setVerifyCache(env, key, result) {
+    try {
+        await env.DB
+            .prepare(
+                "INSERT OR REPLACE INTO verify_cache (cache_key, result, created_at) " +
+                "VALUES (?, ?, ?)"
+            )
+            .bind(key, JSON.stringify(result), nowIso())
+            .run();
+    } catch (e) {
+        // نادیده بگیر
+    }
+}
+
 
 /**
  * POST /api/payment/submit-tx
@@ -1045,14 +1086,22 @@ async function handleSubmitTx(request, env) {
         return jsonCors({ error: "Unsupported network" }, 500, request);
     }
 
-    let verified;
-    try {
-        if (net.isTron) {
-            verified = await verifyTronTxByHash(pr, txHash, net);
-        } else {
-            verified = await verifyEvmTxByHash(pr, txHash, net);
-        }
-    } catch (err) {
+    // چک cache
+    const cacheKey = pr.network + ":" + txHash;
+    let verified = await getVerifyCache(env, cacheKey);
+
+    if (!verified) {
+        try {
+            if (net.isTron) {
+                verified = await verifyTronTxByHash(pr, txHash, net);
+            } else {
+                verified = await verifyEvmTxByHash(pr, txHash, net);
+            }
+            // فقط اگه جواب قطعی بود cache کن
+            if (verified && (verified.invalid || verified.from)) {
+                await setVerifyCache(env, cacheKey, verified);
+            }
+        } catch (err) {
         console.error("submit-tx verify error:", err && err.message);
         return jsonCors({ error: "Failed to verify on blockchain" }, 502, request);
     }
@@ -1558,6 +1607,11 @@ async function cleanupOldData(env) {
     ).bind(thirtyDaysAgo.slice(0, 10)).run();
     result.cron_logs_deleted = r4.meta ? r4.meta.changes : 0;
 
+    const r5 = await env.DB.prepare(
+        "DELETE FROM verify_cache WHERE created_at < ?"
+    ).bind(thirtyDaysAgo).run();
+    result.verify_cache_deleted = r5.meta ? r5.meta.changes : 0;
+    
     return result;
 }
 

@@ -107,20 +107,42 @@ function json(data, status, extraHeaders) {
 /**
  * CORS headers — اجازه دسترسی از دامنه فرانت‌اند
  */
-function corsHeaders() {
+function corsHeaders(request) {
+    // دامنه‌های مجاز
+    const ALLOWED_ORIGINS = [
+        "https://we-need-your-help.xyz",
+        "https://www.we-need-your-help.xyz",
+        "https://nadrhessam-source.github.io"
+    ];
+
+    let origin = "*";
+    if (request) {
+        const reqOrigin = request.headers.get("Origin") || "";
+        if (ALLOWED_ORIGINS.indexOf(reqOrigin) !== -1) {
+            origin = reqOrigin;
+        } else if (reqOrigin === "") {
+            // درخواست از سرور (curl) — اجازه بده
+            origin = "*";
+        } else {
+            // دامنه غیرمجاز — بلاک کن
+            origin = ALLOWED_ORIGINS[0];
+        }
+    }
+
     return {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Max-Age": "86400"
+        "Access-Control-Max-Age": "86400",
+        "Vary": "Origin"
     };
 }
 
 /**
  * پاسخ JSON با CORS
  */
-function jsonCors(data, status) {
-    return json(data, status, corsHeaders());
+function jsonCors(data, status, request) {
+    return json(data, status, corsHeaders(request));
 }
 
 /**
@@ -574,14 +596,14 @@ async function handleLeaderboard(env) {
 /**
  * GET /api/donations/:id
  */
-async function handleDonationById(env, id) {
+async function handleDonationById(env, id, request) {
     if (!id || !/^[a-f0-9]{24}$/.test(id)) {
-        return jsonCors({ error: "Invalid ID" }, 400);
+        return jsonCors({ error: "Invalid ID" }, 400, request);
     }
 
     const row = await getDonationById(env, id);
     if (!row || row.status !== "CONFIRMED") {
-        return jsonCors({ error: "Not found" }, 404);
+        return jsonCors({ error: "Not found" }, 404, request);
     }
 
     return jsonCors({
@@ -774,13 +796,13 @@ async function handlePaymentCreate(request, env) {
     try {
         body = await request.json();
     } catch (e) {
-        return jsonCors({ error: "Invalid JSON body" }, 400);
+        return jsonCors({ error: "Invalid JSON body" }, 400, request);
     }
 
         // اعتبارسنجی مبلغ
     const baseAmount = Number(body.amount);
     if (!isFinite(baseAmount) || baseAmount < 1 || baseAmount > 1000000) {
-        return jsonCors({ error: "Invalid amount" }, 400);
+        return jsonCors({ error: "Invalid amount" }, 400, request);
     }
 
     // گرد کردن به ۲ رقم اعشار
@@ -790,7 +812,7 @@ async function handlePaymentCreate(request, env) {
     const network = String(body.network || "").toLowerCase();
     const net = CONFIG.NETWORKS[network];
     if (!net) {
-        return jsonCors({ error: "Unsupported network" }, 400);
+        return jsonCors({ error: "Unsupported network" }, 400, request);
     }
 
     // اعتبارسنجی آدرس مقصد
@@ -801,7 +823,7 @@ async function handlePaymentCreate(request, env) {
     ) {
         return jsonCors(
             { error: "Destination wallet not configured yet. Contact support." },
-            500
+            500, request
         );
     }
 
@@ -828,7 +850,7 @@ async function handlePaymentCreate(request, env) {
         const result = await generateUniqueAmount(env, roundedBase, network);
         uniqueAmount = result.amount;
     } catch (err) {
-        return jsonCors({ error: err.message }, 503);
+        return jsonCors({ error: err.message }, 503, request);
     }
 
     const id = shortId();
@@ -876,14 +898,14 @@ async function handlePaymentCreate(request, env) {
 /**
  * GET /api/payment/status/:requestId
  */
-async function handlePaymentStatus(env, requestId) {
+async function handlePaymentStatus(env, requestId, request) {
     if (!requestId || !/^[a-f0-9]{24}$/.test(requestId)) {
-        return jsonCors({ error: "Invalid request ID" }, 400);
+        return jsonCors({ error: "Invalid request ID" }, 400, request);
     }
 
     const pr = await getPaymentRequestById(env, requestId);
     if (!pr) {
-        return jsonCors({ error: "Payment request not found" }, 404);
+        return jsonCors({ error: "Payment request not found" }, 404, request);
     }
 
     // اگر قبلاً تأیید شده
@@ -976,7 +998,7 @@ async function handleSubmitTx(request, env) {
     try {
         body = await request.json();
     } catch (e) {
-        return jsonCors({ error: "Invalid JSON" }, 400);
+        return jsonCors({ error: "Invalid JSON" }, 400, request);
     }
 
     const requestId = String(body.requestId || "").trim();
@@ -984,19 +1006,19 @@ async function handleSubmitTx(request, env) {
 
     // اعتبارسنجی
     if (!/^[a-f0-9]{24}$/.test(requestId)) {
-        return jsonCors({ error: "Invalid request ID" }, 400);
+        return jsonCors({ error: "Invalid request ID" }, 400, request);
     }
 
     const isEvmTx = /^0x[a-fA-F0-9]{64}$/.test(txHash);
     const isTronTx = /^[a-fA-F0-9]{64}$/.test(txHash);
     if (!isEvmTx && !isTronTx) {
-        return jsonCors({ error: "Invalid transaction hash format" }, 400);
+        return jsonCors({ error: "Invalid transaction hash format" }, 400, request);
     }
 
     // دریافت درخواست
     const pr = await getPaymentRequestById(env, requestId);
     if (!pr) {
-        return jsonCors({ error: "Payment request not found" }, 404);
+        return jsonCors({ error: "Payment request not found" }, 404, request);
     }
 
     if (pr.status === "CONFIRMED") {
@@ -1008,19 +1030,19 @@ async function handleSubmitTx(request, env) {
     }
 
     if (pr.status === "EXPIRED") {
-        return jsonCors({ error: "Payment request has expired" }, 400);
+        return jsonCors({ error: "Payment request has expired" }, 400, request);
     }
 
     // چک تکراری نبودن tx hash
     const used = await isTxHashUsed(env, txHash);
     if (used) {
-        return jsonCors({ error: "This transaction is already registered" }, 400);
+        return jsonCors({ error: "This transaction is already registered" }, 400, request);
     }
 
     // تأیید از بلاکچین
     const net = CONFIG.NETWORKS[pr.network];
     if (!net) {
-        return jsonCors({ error: "Unsupported network" }, 500);
+        return jsonCors({ error: "Unsupported network" }, 500, request);
     }
 
     let verified;
@@ -1032,14 +1054,14 @@ async function handleSubmitTx(request, env) {
         }
     } catch (err) {
         console.error("submit-tx verify error:", err && err.message);
-        return jsonCors({ error: "Failed to verify on blockchain" }, 502);
+        return jsonCors({ error: "Failed to verify on blockchain" }, 502, request);
     }
 
     if (!verified || verified.invalid) {
         return jsonCors({
             status: "INVALID",
             error: (verified && verified.reason) || "Transaction does not match"
-        }, 400);
+        }, 400, request);
     }
 
     if (verified.pending) {
@@ -1324,7 +1346,7 @@ async function handleSocialRecord(request, env) {
     try {
         body = await request.json();
     } catch (e) {
-        return jsonCors({ error: "Invalid JSON" }, 400);
+        return jsonCors({ error: "Invalid JSON" }, 400, request);
     }
 
     const platform = sanitizeText(body.platform, 40);
@@ -1336,7 +1358,7 @@ async function handleSocialRecord(request, env) {
     const errorMessage = sanitizeText(body.errorMessage, 500) || null;
 
     if (!platform || !content) {
-        return jsonCors({ error: "Missing platform or content" }, 400);
+        return jsonCors({ error: "Missing platform or content" }, 400, request);
     }
 
     const now = nowIso();
@@ -1365,7 +1387,7 @@ async function handleSocialRecord(request, env) {
         return jsonCors({ ok: true });
     } catch (err) {
         console.error("social record error:", err && err.message);
-        return jsonCors({ error: "Database error" }, 500);
+        return jsonCors({ error: "Database error" }, 500, request);
     }
 }
 
@@ -1391,6 +1413,33 @@ async function handleHealth(env) {
     });
 }
 
+/**
+ * Rate limiting ساده بر اساس IP
+ * - 60 request در دقیقه برای هر IP
+ * - از D1 برای ذخیره استفاده نمی‌کنه (in-memory در global scope)
+ */
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 دقیقه
+const RATE_LIMIT_MAX_REQUESTS = 60;
+
+function checkRateLimit(request) {
+    const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+    const now = Date.now();
+
+    let entry = rateLimitMap.get(ip);
+    if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+        entry = { windowStart: now, count: 1 };
+        rateLimitMap.set(ip, entry);
+        return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - 1 };
+    }
+
+    entry.count++;
+    if (entry.count > RATE_LIMIT_MAX_REQUESTS) {
+        return { allowed: false, remaining: 0 };
+    }
+    return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - entry.count };
+}
+
 // ============================================================
 // 8. Router & Main Handler
 // ============================================================
@@ -1413,10 +1462,21 @@ async function handleRequest(request, env) {
 
     // بررسی binding دیتابیس
     if (!env || !env.DB) {
-        return jsonCors({ error: "Database not configured" }, 500);
+        return jsonCors({ error: "Database not configured" }, 500, request);
     }
 
     try {
+        // بررسی rate limit برای endpoint های POST
+        if (method === "POST") {
+            const rl = checkRateLimit(request);
+            if (!rl.allowed) {
+                return jsonCors(
+                    { error: "Too many requests. Please try again in a minute." },
+                    429,
+                    request
+                );
+            }
+        }
         // ---------- GET endpoints ----------
         if (method === "GET" && path === "/api/health") {
             return await handleHealth(env);
@@ -1440,13 +1500,13 @@ async function handleRequest(request, env) {
         // /api/donations/:id  (id = 24 hex)
         const donationMatch = path.match(/^\/api\/donations\/([a-f0-9]{24})$/);
         if (method === "GET" && donationMatch) {
-            return await handleDonationById(env, donationMatch[1]);
+            return await handleDonationById(env, donationMatch[1],request);
         }
 
         // /api/payment/status/:requestId
         const statusMatch = path.match(/^\/api\/payment\/status\/([a-f0-9]{24})$/);
         if (method === "GET" && statusMatch) {
-            return await handlePaymentStatus(env, statusMatch[1]);
+            return await handlePaymentStatus(env, statusMatch[1], request);
         }
 
         if (method === "POST" && path === "/api/social/record") {
@@ -1463,10 +1523,10 @@ async function handleRequest(request, env) {
         }
 
         // ---------- 404 ----------
-        return jsonCors({ error: "Not found", path: path }, 404);
+        return jsonCors({ error: "Not found", path: path }, 404, request);
     } catch (err) {
         console.error("Unhandled error:", err && err.stack);
-        return jsonCors({ error: "Internal server error" }, 500);
+        return jsonCors({ error: "Internal server error" }, 500, request);
     }
 }
 

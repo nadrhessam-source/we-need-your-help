@@ -1430,6 +1430,29 @@ async function handleAdminExport(env, request) {
 }
 
 /**
+ * POST /api/admin/cleanup
+ * پاک کردن داده‌های قدیمی
+ */
+async function handleAdminCleanup(request, env) {
+    const authHeader = request.headers.get("Authorization") || "";
+    const expectedToken = env.BACKUP_TOKEN || "";
+    if (!expectedToken) {
+        return jsonCors({ error: "Cleanup not configured" }, 503, request);
+    }
+    if (authHeader !== "Bearer " + expectedToken) {
+        return jsonCors({ error: "Unauthorized" }, 401, request);
+    }
+
+    try {
+        const result = await cleanupOldData(env);
+        return jsonCors({ ok: true, result: result }, 200, request);
+    } catch (err) {
+        console.error("cleanup error:", err && err.message);
+        return jsonCors({ error: "Cleanup failed" }, 500, request);
+    }
+}
+
+/**
  * GET /api/health
  */
 async function handleHealth(env) {
@@ -1506,6 +1529,36 @@ async function checkRateLimit(request, env) {
         .run();
 
     return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - newCount };
+}
+
+async function cleanupOldData(env) {
+    const now = nowIso();
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+
+    const result = {};
+
+    const r1 = await env.DB.prepare(
+        "DELETE FROM payment_requests WHERE status IN ('EXPIRED', 'AWAITING_PAYMENT') AND expires_at < ?"
+    ).bind(sevenDaysAgo).run();
+    result.payment_requests_deleted = r1.meta ? r1.meta.changes : 0;
+
+    const r2 = await env.DB.prepare(
+        "DELETE FROM social_posts WHERE status = 'FAILED' AND created_at < ?"
+    ).bind(thirtyDaysAgo).run();
+    result.social_posts_deleted = r2.meta ? r2.meta.changes : 0;
+
+    const r3 = await env.DB.prepare(
+        "DELETE FROM rate_limits WHERE window_start < ?"
+    ).bind(now).run();
+    result.rate_limits_deleted = r3.meta ? r3.meta.changes : 0;
+
+    const r4 = await env.DB.prepare(
+        "DELETE FROM cron_logs WHERE run_date < ?"
+    ).bind(thirtyDaysAgo.slice(0, 10)).run();
+    result.cron_logs_deleted = r4.meta ? r4.meta.changes : 0;
+
+    return result;
 }
 
 // ============================================================
@@ -1592,6 +1645,10 @@ async function handleRequest(request, env) {
 
         if (method === "GET" && path === "/api/admin/export") {
             return await handleAdminExport(env, request);
+        }
+
+        if (method === "POST" && path === "/api/admin/cleanup") {
+            return await handleAdminCleanup(request, env);
         }
 
         // ---------- 404 ----------

@@ -1,0 +1,30 @@
+name: Cleanup D1 Database
+
+on:
+  schedule:
+    # هر روز ساعت 10:30 UTC (بعد از Backup)
+    - cron: '30 10 * * *'
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Run cleanup
+        env:
+          BACKUP_TOKEN: ${{ secrets.WNYH_BACKUP_TOKEN }}
+        run: |
+          RESPONSE=$(curl -sS -f -X POST \
+            -H "Authorization: Bearer $BACKUP_TOKEN" \
+            "https://api.we-need-your-help.xyz/api/admin/cleanup")
+          
+          echo "$RESPONSE" | python3 -m json.tool
+          
+          echo ""
+          echo "### Cleanup Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo "$RESPONSE" | python3 -m json.tool >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

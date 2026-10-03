@@ -41,10 +41,10 @@ const path = require("path");
 const { selectTemplate } = require("./templates");
 
 const API_BASE = process.env.WNYH_API_BASE ||
-    "https://we-need-your-help-api.nadrhessam.workers.dev";
+    "https://api.we-need-your-help.xyz";
 
 const WEBSITE_URL = process.env.WNYH_WEBSITE ||
-    "https://nadrhessam-source.github.io/we-need-your-help/";
+    "https://we-need-your-help.xyz";
 
 const OUT_DIR = path.join(__dirname, "..", "tmp");
 

@@ -1174,6 +1174,7 @@ async function handleReport(env) {
         largest: Number(yesterdayStats.largest) || 0
     };
 
+    // --- رویدادهای پایه ---
     if (totalDonors === yd.count && totalDonors > 0) {
         events.push("first_donation");
     }
@@ -1185,6 +1186,12 @@ async function handleReport(env) {
     }
     if (yd.count > 0 && yd.total >= 10 && yd.total < 100) {
         events.push("normal_day");
+    }
+    if (yd.total >= 100 && yd.total < 1000) {
+        events.push("big_day");
+    }
+    if (yd.total >= 1000) {
+        events.push("huge_day");
     }
     if (yd.largest >= 100 && yd.largest < 1000) {
         events.push("big_donation");
@@ -1201,6 +1208,67 @@ async function handleReport(env) {
         yd.total > 0
     ) {
         events.push("record_day");
+    }
+
+    // --- donor_milestone: تعداد کمک‌کننده‌ها از یه threshold رد شده ---
+    const DONOR_THRESHOLDS = [10, 50, 100, 500, 1000, 5000];
+    for (const t of DONOR_THRESHOLDS) {
+        if (totalDonors >= t && (totalDonors - yd.count) < t) {
+            events.push("donor_milestone_" + t);
+            events.push("donor_milestone");
+            break;
+        }
+    }
+
+    // --- network_first: اولین donation در شبکه‌های مختلف در ۲۴ ساعت اخیر ---
+    const oneDayAgoStr = new Date(now.getTime() - 86400000).toISOString();
+    const networkCounts = await env.DB
+        .prepare(
+            "SELECT network, COUNT(*) AS c, MIN(confirmed_at) AS first_at " +
+            "FROM donations WHERE status = 'CONFIRMED' " +
+            "GROUP BY network"
+        )
+        .all();
+    if (networkCounts.results) {
+        for (const row of networkCounts.results) {
+            if (row.c === 1 && row.first_at >= oneDayAgoStr) {
+                events.push("network_first_" + row.network);
+                events.push("network_first");
+            }
+        }
+    }
+
+    // --- repeat_donor: wallet هایی که بیش از یه بار کمک کردن ---
+    const repeatDonor = await env.DB
+        .prepare(
+            "SELECT wallet_address, COUNT(*) AS c " +
+            "FROM donations WHERE status = 'CONFIRMED' " +
+            "AND confirmed_at >= ? " +
+            "GROUP BY wallet_address HAVING c > 1 LIMIT 1"
+        )
+        .bind(yesterdayStart)
+        .first();
+    if (repeatDonor && repeatDonor.c > 1) {
+        events.push("repeat_donor");
+    }
+
+    // --- week_anniversary: هر ۷ روز از launch ---
+    if (daysSinceLaunch > 0 && daysSinceLaunch % 7 === 0) {
+        events.push("week_anniversary");
+        events.push("week_" + daysSinceLaunch);
+    }
+
+    // --- lucky_amount: مبالغ طنزآمیز در donation های دیروز ---
+    const LUCKY_AMOUNTS = [7.77, 13.37, 42, 69, 420, 666, 777, 1337];
+    const yesterdayDonationAmounts = (yesterdayDonations.results || []).map(
+        function (d) { return Number(d.amount); }
+    );
+    for (const lucky of LUCKY_AMOUNTS) {
+        if (yesterdayDonationAmounts.indexOf(lucky) !== -1) {
+            events.push("lucky_amount");
+            events.push("lucky_" + String(lucky).replace(/\./g, "_"));
+            break;
+        }
     }
 
     return jsonCors({

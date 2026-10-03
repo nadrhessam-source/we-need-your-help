@@ -209,8 +209,9 @@ async function getTotalRaised(env) {
  * تعداد کمک‌ها (donations تأییدشده)
  */
 async function getTotalDonors(env) {
+    // تعداد wallet یکتا (نه تعداد ردیف)
     const row = await env.DB
-        .prepare("SELECT COUNT(*) AS c FROM donations WHERE status = 'CONFIRMED'")
+        .prepare("SELECT COUNT(DISTINCT wallet_address) AS c FROM donations WHERE status = 'CONFIRMED'")
         .first();
     return Number(row && row.c) || 0;
 }
@@ -1211,9 +1212,19 @@ async function handleReport(env) {
     }
 
     // --- donor_milestone: تعداد کمک‌کننده‌ها از یه threshold رد شده ---
+    const yesterdayDonorsRow = await env.DB
+        .prepare(
+            "SELECT COUNT(DISTINCT wallet_address) AS c FROM donations " +
+            "WHERE status = 'CONFIRMED' AND confirmed_at >= ? AND confirmed_at < ?"
+        )
+        .bind(yesterdayStart, todayStart)
+        .first();
+    const uniqueYesterdayDonors = Number(yesterdayDonorsRow && yesterdayDonorsRow.c) || 0;
+
     const DONOR_THRESHOLDS = [10, 50, 100, 500, 1000, 5000];
     for (const t of DONOR_THRESHOLDS) {
-        if (totalDonors >= t && (totalDonors - yd.count) < t) {
+        // totalDonors الان = تعداد wallet یکتا
+        if (totalDonors >= t && (totalDonors - uniqueYesterdayDonors) < t) {
             events.push("donor_milestone_" + t);
             events.push("donor_milestone");
             break;
@@ -1241,14 +1252,20 @@ async function handleReport(env) {
     // --- repeat_donor: wallet هایی که بیش از یه بار کمک کردن ---
     const repeatDonor = await env.DB
         .prepare(
-            "SELECT wallet_address, COUNT(*) AS c " +
-            "FROM donations WHERE status = 'CONFIRMED' " +
-            "AND confirmed_at >= ? " +
-            "GROUP BY wallet_address HAVING c > 1 LIMIT 1"
+            "SELECT d1.wallet_address, " +
+            "(SELECT COUNT(*) FROM donations d2 " +
+            " WHERE d2.wallet_address = d1.wallet_address " +
+            " AND d2.confirmed_at < ?) AS prev_count " +
+            "FROM donations d1 " +
+            "WHERE d1.status = 'CONFIRMED' " +
+            "AND d1.confirmed_at >= ? " +
+            "GROUP BY d1.wallet_address " +
+            "HAVING prev_count > 0 " +
+            "LIMIT 1"
         )
-        .bind(yesterdayStart)
+        .bind(yesterdayStart, yesterdayStart)
         .first();
-    if (repeatDonor && repeatDonor.c > 1) {
+    if (repeatDonor) {
         events.push("repeat_donor");
     }
 

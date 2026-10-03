@@ -1,8 +1,15 @@
 {
   "date": "2026-10-03",
-  "template": "zero_day",
+  "template": "donor_milestone",
   "events": [
-    "zero_day"
+    "big_day",
+    "big_donation",
+    "record_day",
+    "donor_milestone_10",
+    "donor_milestone",
+    "repeat_donor",
+    "lucky_amount",
+    "lucky_7_77"
   ],
-  "generatedAt": "2026-10-03T09:01:15.994Z"
+  "generatedAt": "2026-10-03T09:26:03.861Z"
 }

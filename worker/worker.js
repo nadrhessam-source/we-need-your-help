@@ -1102,8 +1102,9 @@ async function handleSubmitTx(request, env) {
                 await setVerifyCache(env, cacheKey, verified);
             }
         } catch (err) {
-        console.error("submit-tx verify error:", err && err.message);
-        return jsonCors({ error: "Failed to verify on blockchain" }, 502, request);
+            console.error("submit-tx verify error:", err && err.message);
+            return jsonCors({ error: "Failed to verify on blockchain" }, 502, request);
+        }
     }
 
     if (!verified || verified.invalid) {
